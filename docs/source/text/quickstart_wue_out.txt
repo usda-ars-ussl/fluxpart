@@ -1,0 +1,13 @@
+>>> print(out['wue'])
+WUE(
+    wue = -8.83 mg/g,
+    inter_h2o = 28.07 g/m^3,
+    inter_co2 = 455.3 mg/m^3,
+    ambient_h2o = 12.6 g/m^3,
+    ambient_co2 = 650.4 mg/m^3,
+    vpd = 2.54 kPa,
+    ci_mod = const_ratio,
+    ci_mod_param = 0.7,
+    ppath = C3,
+    meas_ht = 7.11 m,
+    canopy_ht = 4.42 m)

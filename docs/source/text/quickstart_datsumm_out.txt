@@ -1,0 +1,19 @@
+>>> print(out['datsumm'])
+HFSummary(
+    T = 28.4 C,
+    P = 100.2 kPa,
+    Pvap = 1.328 kPa,
+    ustar = 0.3902 m/s,
+    wind_w = 0.0525 m/s,
+    var_w = 0.303 (m/s)^2,
+    rho_vapor = 9.545 g/m^3,
+    rho_co2 = 661.3 mg/m^3,
+    var_vapor = 0.4225 (g/m^3)^2,
+    var_co2 = 6.669 (mg/m^3)^2,
+    cov_w_q = 0.1524 g/m^2/s,
+    H = -0.5479 W/m^2,
+    cov_w_c = 176.5 mg/m^2/s,
+    rho_dryair = 1.142 kg/m^3,
+    rho_totair = 1.152 kg/m^3,
+    cov_w_T = 0.1515 C m/s,
+    N = 16384)

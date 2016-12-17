@@ -1,0 +1,6 @@
+>>> print(out['result'])
+Result(
+    dataread = True,
+    attempt_partition = True,
+    valid_partition = True,
+    mssg = )

@@ -1,0 +1,8 @@
+>>> print(out['qcdat'])
+QCData(
+    var_q = 0.3442 (g/m^3)^2,
+    var_c = 5.962 (mg/m^3)^2,
+    corr_qc = -0.9345,
+    wq = 0.1299 g/m^2/s,
+    wc = -0.5135 mg/m^2/s,
+    wave_lvl = (11, 14))

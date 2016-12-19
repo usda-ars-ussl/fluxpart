@@ -1,11 +1,11 @@
 package:
   name: fluxpart
-  version: "0.1.0.dev5"
+  version: "0.1.0a0"
 
 source:
-  fn: fluxpart-0.1.0.dev5.tar.gz
-  url: https://pypi.python.org/packages/c5/cf/346a5dd1926b9082ea14c07350c0870c10fee94f15e4db27299f5b7f9b6d/fluxpart-0.1.0.dev5.tar.gz
-  md5: 35e28fefd555044459572764fe9a96ca
+  fn: fluxpart-0.1.0a0.tar.gz
+  url: https://pypi.python.org/packages/f0/3a/ed51e47a4a9cc2a4865a2739cf3ff115c7e7711dcdfc5fadd1c8aa4e720f/fluxpart-0.1.0a0.tar.gz
+  md5: e1748f2eb894732e6ac8b3ab8159e391
 #  patches:
    # List any patch files here
    # - fix.patch
@@ -56,15 +56,15 @@ test:
   # at test time.
 
   requires:
-    - pytest
+    - numpy
     # Put any additional test requirements here.  For example
     # - nose
 
 about:
   home: https://github.com/usda-ars-ussl/fluxpart
   license: Public Domain CC0
-  summary: 'Partition water vapor and carbon dioxide fluxes'
-  license_family: Public-Domain
+  summary: 'Module for partitioning eddy covariance flux measurements.'
+  license_family: PUBLICDOMAIN
 
 # See
 # http://docs.continuum.io/conda/build.html for

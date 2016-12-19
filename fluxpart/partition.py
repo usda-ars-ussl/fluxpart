@@ -344,7 +344,7 @@ def adjust_partitioned_fluxes(fc, wue, wq_tot, wc_tot):
     wq_diff = wq_tot - (fc.wqe + fc.wqt)
     wqe = fc.wqe + wq_diff * (fc.wqe / (fc.wqt + fc.wqe))
     wqt = wq_tot - wqe
-    wcp = wue * (fc.wqt + wq_diff * (fc.wqt / (fc.wqt + fc.wqe)))
+    wcp = wue * wqt
     wcr = wc_tot - wcp
     return FluxComponents(wq=wq_tot, wqt=wqt, wqe=wqe,
                           wc=wc_tot, wcp=wcp, wcr=wcr)

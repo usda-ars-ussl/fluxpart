@@ -252,7 +252,7 @@ def flux_partition(fname, meas_wue=None, hfd_options=None, wue_options=None,
                         valid_partition=False, mssg=mssg)
         return {'label': label,
                 'result': result,
-                'fluxes': _no_partitioned_fluxes(hfsum),
+                'fluxes': Fluxes(*np.full(15, np.nan)),
                 'datsumm': hfsum,
                 'wue': WUE(*np.full(11, np.nan)),
                 'numsoln': NumerSoln(*np.full(10, np.nan))}
@@ -270,7 +270,7 @@ def flux_partition(fname, meas_wue=None, hfd_options=None, wue_options=None,
                         valid_partition=False, mssg=mssg)
         return {'label': label,
                 'result': result,
-                'fluxes': _no_partitioned_fluxes(hfsum),
+                'fluxes': Fluxes(*np.full(15, np.nan)),
                 'datsumm': hfsum,
                 'wue': leaf_wue,
                 'numsoln': None}
@@ -299,7 +299,7 @@ def flux_partition(fname, meas_wue=None, hfd_options=None, wue_options=None,
             Fcp_mol=util.cflux_mass_to_mol(pout['fluxcomps'].wcp),
             Fcr_mol=util.cflux_mass_to_mol(pout['fluxcomps'].wcr))
     else:
-        fluxes = _no_partitioned_fluxes(hfsum)
+        fluxes = Fluxes(*np.full(15, np.nan))
 
     return {'label': label,
             'result': result,
@@ -319,25 +319,6 @@ def _converter_func(slope, intercept):
         except ValueError:
             return np.nan
     return func
-
-
-def _no_partitioned_fluxes(hfsum):
-    return Fluxes(
-        Fq=hfsum.cov_w_q,
-        Fqe=np.nan,
-        Fqt=np.nan,
-        Fc=hfsum.cov_w_c,
-        Fcr=np.nan,
-        Fcp=np.nan,
-        LE=util.qflux_mass_to_heat(hfsum.cov_w_q, hfsum.T),
-        LEt=np.nan,
-        LEe=np.nan,
-        Fq_mol=util.qflux_mass_to_mol(hfsum.cov_w_q),
-        Fqt_mol=np.nan,
-        Fqe_mol=np.nan,
-        Fc_mol=util.cflux_mass_to_mol(hfsum.cov_w_c),
-        Fcp_mol=np.nan,
-        Fcr_mol=np.nan)
 
 
 if __name__ == "__main__":

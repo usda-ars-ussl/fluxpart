@@ -1,6 +1,7 @@
 """Namedtuples used to group data and results."""
 
 from collections import namedtuple
+import numpy as np
 
 
 class FluxComponents(namedtuple('FluxComponents', 'wq wqt wqe wc wcp wcr')):
@@ -197,10 +198,14 @@ class NumerSoln(namedtuple('NumerSoln', 'corr_cp_cr var_cp sig_cr co2soln_id '
     def __str__(self):
 
         # For some fields, print common units instead of SI
+        try:
+            initial = (self.init[0], 1e12 * self.init[1])
+        except IndexError:
+            initial = (np.nan, np.nan)
         dum = self._replace(
             var_cp=1e12 * self.var_cp,
             sig_cr=1e6 * self.sig_cr,
-            init=(self.init[0], 1e12 * self.init[1]))
+            init = initial)
 
         return ('NumerSoln(\n'
                 '    corr_cp_cr = {0:.4},\n'

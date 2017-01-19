@@ -4,7 +4,7 @@ import fluxpart.partition as fp
 import fluxpart.wue as wue
 import fluxpart.util as util
 from fluxpart.hfdata import HFData
-from fluxpart.containers import Fluxes, WUE, Result, NumerSoln
+from fluxpart.containers import Fluxes, WUE, Result, NumerSoln, HFSummary
 
 DEFAULT_WUE_OPTIONS = {
     'ci_mod': 'const_ratio',
@@ -221,7 +221,7 @@ def flux_partition(fname, meas_wue=None, hfd_options=None, wue_options=None,
         return {'label': label,
                 'result': result,
                 'fluxes': Fluxes(*np.full(15, np.nan)),
-                'datsumm': None,
+                'datsumm': HFSummary(*np.full(17, np.nan)),
                 'wue': WUE(*np.full(11, np.nan)),
                 'numsoln': NumerSoln(*np.full(10, np.nan))}
 
@@ -259,7 +259,7 @@ def flux_partition(fname, meas_wue=None, hfd_options=None, wue_options=None,
 
     # get or calculate water use efficiency
     if meas_wue:
-        leaf_wue = WUE(float(meas_wue), *10 * (np.nan,))
+        leaf_wue = WUE(float(meas_wue), *np.full(10, np.nan))
     else:
         leaf_wue = wue.water_use_efficiency(hfsum, **wue_options)
 
@@ -273,7 +273,7 @@ def flux_partition(fname, meas_wue=None, hfd_options=None, wue_options=None,
                 'fluxes': Fluxes(*np.full(15, np.nan)),
                 'datsumm': hfsum,
                 'wue': leaf_wue,
-                'numsoln': None}
+                'numsoln': NumerSoln(*np.full(10, np.nan))}
 
     # compute partitioned fluxes
     adjusting_fluxes = part_options['adjusting_fluxes']

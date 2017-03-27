@@ -83,8 +83,9 @@ class Fluxes(namedtuple('Fluxes', 'Fq Fqt Fqe Fc Fcp Fcr LE LEt LEe '
 
 
 class HFSummary(namedtuple('HFSummary', 'T P Pvap ustar wind_w var_w '
-                           'rho_vapor rho_co2 var_vapor var_co2 cov_w_q '
-                           'cov_w_c H rho_dryair rho_totair cov_w_T N')):
+                           'rho_vapor rho_co2 var_vapor var_co2 corr_q_c, '
+                           'cov_w_q cov_w_c H rho_dryair rho_totair '
+                           'cov_w_T N')):
 
     """Summary of high frequency eddy covariance data.
 
@@ -104,6 +105,8 @@ class HFSummary(namedtuple('HFSummary', 'T P Pvap ustar wind_w var_w '
         Mean H2O vapor and CO2 concentrations, kg/m^3.
     var_vapor, var_co2 : float
         Variance of H2O vapor and CO2 concentrations, (kg/m^3)^2.
+    corr_q_c : float
+        Correlation coefficient for H2O and CO2 concentrations
     cov_w_q, cov_w_c : float
         Covariance of vertical wind velocity (w) with water vapor (q)
         and CO2 (c) mass densities, kg/m^2/s.
@@ -145,6 +148,7 @@ class HFSummary(namedtuple('HFSummary', 'T P Pvap ustar wind_w var_w '
                 '    rho_co2 = {:.4} mg/m^3,\n'
                 '    var_vapor = {:.4} (g/m^3)^2,\n'
                 '    var_co2 = {:.4} (mg/m^3)^2,\n'
+                '    corr_q_c = {:.4},\n'
                 '    cov_w_q = {:.4} g/m^2/s,\n'
                 '    H = {:.4} W/m^2,\n'
                 '    cov_w_c = {:.4} mg/m^2/s,\n'

@@ -226,7 +226,7 @@ def flux_partition(fname, meas_wue=None, hfd_options=None, wue_options=None,
         return {'label': label,
                 'result': result,
                 'fluxes': Fluxes(*np.full(15, np.nan)),
-                'datsumm': HFSummary(*np.full(17, np.nan)),
+                'datsumm': HFSummary(*np.full(18, np.nan)),
                 'wue': WUE(*np.full(11, np.nan)),
                 'numsoln': NumerSoln(*np.full(10, np.nan)),
                 'qcdat': QCData(*np.full(6, np.nan))}

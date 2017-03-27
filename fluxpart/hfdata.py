@@ -1,5 +1,6 @@
 """Data strucure for high-frequency eddy covarinace time series."""
 
+import math
 import numpy as np
 
 import fluxpart.util as util
@@ -223,6 +224,7 @@ class HFData:
             var_vapor=hfs.var_q,
             rho_co2=hfs.ave_c,
             var_co2=hfs.var_c,
+            corr_q_c=hfs.cov_q_c / math.sqrt(hfs.var_q * hfs.var_c),
             H=rho_totair * Cp * hfs.cov_w_T,
             cov_w_q=hfs.cov_w_q,
             cov_w_c=hfs.cov_w_c,

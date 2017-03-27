@@ -1,3 +1,4 @@
+import pkg_resources
 import numpy as np
 
 import fluxpart.partition as fp
@@ -25,6 +26,8 @@ DEFAULT_HFD_OPTIONS = {
 
 DEFAULT_PART_OPTIONS = {
     'adjusting_fluxes': True}
+
+VERSION = pkg_resources.require("fluxpart")[0].version
 
 
 def flux_partition(fname, meas_wue=None, hfd_options=None, wue_options=None,
@@ -216,8 +219,9 @@ def flux_partition(fname, meas_wue=None, hfd_options=None, wue_options=None,
                        **hfd_options)
     except (TypeError, ValueError) as err:
         mssg = 'HFData read fail: ' + err.args[0]
-        result = Result(dataread=False, attempt_partition=False,
-                        valid_partition=False, mssg=mssg)
+        result = Result(version=VERSION, dataread=False,
+                        attempt_partition=False, valid_partition=False,
+                        mssg=mssg)
         return {'label': label,
                 'result': result,
                 'fluxes': Fluxes(*np.full(15, np.nan)),
@@ -235,7 +239,7 @@ def flux_partition(fname, meas_wue=None, hfd_options=None, wue_options=None,
     if hfsum.ustar < ustar_tol:
         mssg = ('ustar = {:.4} is less than ustar_tol = {:.4}'.
                 format(hfsum.ustar, ustar_tol))
-        result = Result(dataread=True, attempt_partition=False,
+        result = Result(version=VERSION, dataread=True, attempt_partition=False,
                         valid_partition=False, mssg=mssg)
         return {'label': label,
                 'result': result,
@@ -248,7 +252,7 @@ def flux_partition(fname, meas_wue=None, hfd_options=None, wue_options=None,
     if hfsum.cov_w_q <= 0:
         mssg = ('cov(w,q) = {:.4} <= 0 is incompatible with partitioning '
                 'algorithm'.format(hfsum.cov_w_q))
-        result = Result(dataread=True, attempt_partition=False,
+        result = Result(version=VERSION, dataread=True, attempt_partition=False,
                         valid_partition=False, mssg=mssg)
         return {'label': label,
                 'result': result,
@@ -266,7 +270,7 @@ def flux_partition(fname, meas_wue=None, hfd_options=None, wue_options=None,
     # exit if wue value is bad
     if not leaf_wue.wue < 0:
         mssg = ('wue={} must be less than zero'.format(leaf_wue.wue))
-        result = Result(dataread=True, attempt_partition=False,
+        result = Result(version=VERSION, dataread=True, attempt_partition=False,
                         valid_partition=False, mssg=mssg)
         return {'label': label,
                 'result': result,
@@ -281,7 +285,7 @@ def flux_partition(fname, meas_wue=None, hfd_options=None, wue_options=None,
                                         leaf_wue.wue, adjusting_fluxes)
 
     # collect results and return
-    result = Result(dataread=True,
+    result = Result(version=VERSION, dataread=True,
                     attempt_partition=True,
                     valid_partition=pout['valid_partition'],
                     mssg=pout['partmssg'])

@@ -266,11 +266,14 @@ class QCData(namedtuple('QCData', 'var_q var_c corr_qc wq wc wave_lvl')):
 
 
 class Result(namedtuple('Result', 
-                        'dataread attempt_partition valid_partition mssg')):
+                        'version dataread attempt_partition valid_partition '
+                        'mssg')):
     """Overall outcome of partitioning.
 
     Attributes
     ----------
+    version : str
+        Fluxpart version
     dataread, attempt_partition, valid_partition : bool
         Indicates success or failure in reading high frequency data,
         attempting and obtaining a valid partioning solution.
@@ -284,6 +287,7 @@ class Result(namedtuple('Result',
 
     def __str__(self):
         return ('Result(\n'
+                '    version = {},\n'
                 '    dataread = {},\n'
                 '    attempt_partition = {},\n'
                 '    valid_partition = {},\n'

@@ -1,4 +1,5 @@
 import math
+from types import SimpleNamespace
 import numpy as np
 from scipy import optimize
 import fluxpart.util as util
@@ -145,6 +146,18 @@ def findroot(qcdat, wue, init=None):
 
     """
 
+
+    # scale parameters so that functions and parameter values are better
+    # centered and have values around 10^0 to 10^2
+
+    qcdat = SimpleNamespace(
+        var_q=qcdat.var_q * 1e6,
+        var_c=qcdat.var_c * 1e12,
+        wq=qcdat.wq * 1e3,
+        wc=qcdat.wc * 1e6,
+        corr_qc=qcdat.corr_qc)
+    wue = wue * 1e3
+
     if init is None:
         init_corr_cp_cr = -0.8
         varcp_ubound0 = qcdat.var_c / (1 - init_corr_cp_cr**2)
@@ -168,7 +181,8 @@ def findroot(qcdat, wue, init=None):
         corr_cp_cr, var_cp = soln['x']
         valid_root, valid_root_mssg = isvalid_root(corr_cp_cr, var_cp)
         if var_cp > 0:
-            wcr_ov_wcp = flux_ratio(var_cp, corr_cp_cr, qcdat, 'co2', co2soln_id)
+            wcr_ov_wcp = flux_ratio(var_cp, corr_cp_cr, qcdat, 'co2',
+                                    co2soln_id)
             sig_cr = wcr_ov_wcp * math.sqrt(var_cp) / corr_cp_cr
         else:
             sig_cr = np.nan
@@ -177,10 +191,11 @@ def findroot(qcdat, wue, init=None):
         sig_cr = np.nan
         valid_root, valid_root_mssg = False, ''
 
+    # re-scale dimensional variables to SI units
     return NumerSoln(
         corr_cp_cr=corr_cp_cr,
-        var_cp=var_cp,
-        sig_cr=sig_cr,
+        var_cp=var_cp * 1e-12,
+        sig_cr=sig_cr * 1e-6,
         co2soln_id=co2soln_id,
         validroot=valid_root,
         validmssg=valid_root_mssg,
@@ -268,8 +283,8 @@ def residual_func(x, qcdat, wue, co2soln_id):
     resid1 = lhs - rhs
 
     # Eq. 4, "f2"
-    lhs = wue * qcdat.corr_qc * math.sqrt(qcdat.var_c * qcdat.var_q)
-    rhs = var_cp * (
+    lhs = wue * qcdat.corr_qc * math.sqrt(qcdat.var_c * qcdat.var_q) / var_cp
+    rhs = (
         1 + wqe_ov_wqt + wcr_ov_wcp + wqe_ov_wqt * wcr_ov_wcp / corr_cp_cr**2)
     resid2 = lhs - rhs
     return [resid1, resid2]

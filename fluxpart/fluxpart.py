@@ -6,6 +6,7 @@ import fluxpart.wue as wue
 import fluxpart.util as util
 from fluxpart.hfdata import HFData
 from fluxpart.containers import Fluxes, WUE, Result, NumerSoln, HFSummary
+from fluxpart.containers import QCData
 
 DEFAULT_WUE_OPTIONS = {
     'ci_mod': 'const_ratio',
@@ -227,7 +228,8 @@ def flux_partition(fname, meas_wue=None, hfd_options=None, wue_options=None,
                 'fluxes': Fluxes(*np.full(15, np.nan)),
                 'datsumm': HFSummary(*np.full(17, np.nan)),
                 'wue': WUE(*np.full(11, np.nan)),
-                'numsoln': NumerSoln(*np.full(10, np.nan))}
+                'numsoln': NumerSoln(*np.full(10, np.nan)),
+                'qcdat': QCData(*np.full(6, np.nan))}
 
     # preliminary data processing and analysis
     hfdat.truncate()
@@ -246,7 +248,8 @@ def flux_partition(fname, meas_wue=None, hfd_options=None, wue_options=None,
                 'fluxes': Fluxes(*np.full(15, np.nan)),
                 'datsumm': hfsum,
                 'wue': WUE(*np.full(11, np.nan)),
-                'numsoln': NumerSoln(*np.full(10, np.nan))}
+                'numsoln': NumerSoln(*np.full(10, np.nan)),
+                'qcdat': QCData(*np.full(6, np.nan))}
 
     # exit if water vapor flux is downward (negative)
     if hfsum.cov_w_q <= 0:
@@ -259,7 +262,8 @@ def flux_partition(fname, meas_wue=None, hfd_options=None, wue_options=None,
                 'fluxes': Fluxes(*np.full(15, np.nan)),
                 'datsumm': hfsum,
                 'wue': WUE(*np.full(11, np.nan)),
-                'numsoln': NumerSoln(*np.full(10, np.nan))}
+                'numsoln': NumerSoln(*np.full(10, np.nan)),
+                'qcdat': QCData(*np.full(6, np.nan))}
 
     # get or calculate water use efficiency
     if meas_wue:
@@ -277,7 +281,8 @@ def flux_partition(fname, meas_wue=None, hfd_options=None, wue_options=None,
                 'fluxes': Fluxes(*np.full(15, np.nan)),
                 'datsumm': hfsum,
                 'wue': leaf_wue,
-                'numsoln': NumerSoln(*np.full(10, np.nan))}
+                'numsoln': NumerSoln(*np.full(10, np.nan)),
+                'qcdat': QCData(*np.full(6, np.nan))}
 
     # compute partitioned fluxes
     adjusting_fluxes = part_options['adjusting_fluxes']

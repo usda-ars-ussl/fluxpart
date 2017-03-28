@@ -187,10 +187,10 @@ def main():
     quickstart_out('fluxes')
     quickstart_rawout('fluxes')
     quickstart_out('result')
-    quickstart_out('datsumm')
+    quickstart_out('hfsummary')
     quickstart_out('wue')
-    quickstart_out('numsoln')
-    quickstart_out('qcdat')
+    quickstart_out('numersoln')
+    quickstart_out('qcdata')
 
 
 if __name__ == '__main__':

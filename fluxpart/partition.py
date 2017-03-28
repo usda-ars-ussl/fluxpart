@@ -31,12 +31,12 @@ def partition_from_wqc_series(w, q, c, wue, adjust_fluxes=True):
     dict
         {'valid_partition': bool, 'partmssg': str,
         'fluxcomps': :class:`~fluxpart.containers.FluxComponents`,
-        'numsoln': :class:`~fluxpart.containers.NumerSoln`,
-        'qcdat': :class:`~fluxpart.containers.QCData`}
+        'numersoln': :class:`~fluxpart.containers.NumerSoln`,
+        'qcdata': :class:`~fluxpart.containers.QCData`}
 
     Notes
     -----
-    If a valid partitioning is not found, the returned `numsoln` and `qcdat`
+    If a valid partitioning is not found, the returned `numersoln` and `qcdata`
     correspond to the final iteration attempted.
 
     """
@@ -53,7 +53,7 @@ def partition_from_wqc_series(w, q, c, wue, adjust_fluxes=True):
 
     for cnt, lowcut_wqc in enumerate(progressive_lowcut(w, q, c)):
         cov = np.cov(lowcut_wqc)
-        qcdat = QCData(
+        qcdata = QCData(
             wq=cov[0, 1],
             wc=cov[0, 2],
             var_q=cov[1, 1],
@@ -61,7 +61,7 @@ def partition_from_wqc_series(w, q, c, wue, adjust_fluxes=True):
             corr_qc=cov[1, 2] / math.sqrt(cov[1, 1] * cov[2, 2]),
             wave_lvl=(max_decomp_lvl - cnt, max_decomp_lvl))
 
-        nsoln, fcomp = partition_from_qc_averages(qcdat, wue)
+        nsoln, fcomp = partition_from_qc_averages(qcdata, wue)
 
         if nsoln.success and nsoln.validroot:
 
@@ -87,18 +87,18 @@ def partition_from_wqc_series(w, q, c, wue, adjust_fluxes=True):
     return {'valid_partition': valid_partition,
             'partmssg': partition_mssg,
             'fluxcomps': fcomp,
-            'numsoln': nsoln,
-            'qcdat': qcdat}
+            'numersoln': nsoln,
+            'qcdata': qcdata}
 
 
-def partition_from_qc_averages(qcdat, wue, init=None):
+def partition_from_qc_averages(qcdata, wue, init=None):
     """Partition H2O and CO2 fluxes using interval average q and c data.
 
     All arguments are passed directly to the findroot function
 
     Parameters
     ----------
-    qcdat : QCData namedtuple or equivalent namespace
+    qcdata : QCData namedtuple or equivalent namespace
     wue : float, kg CO2 / kg H2O
         Leaf-level water use efficiency, `wue` < 0
     init : (float, float), optional
@@ -115,21 +115,21 @@ def partition_from_qc_averages(qcdat, wue, init=None):
 
     """
 
-    nsoln = findroot(qcdat, wue, init)
+    nsoln = findroot(qcdata, wue, init)
     if nsoln.success and nsoln.validroot:
-        fluxes = flux_components(nsoln.var_cp, nsoln.corr_cp_cr, qcdat, wue,
+        fluxes = flux_components(nsoln.var_cp, nsoln.corr_cp_cr, qcdata, wue,
                                  nsoln.co2soln_id)
     else:
         fluxes = FluxComponents(*np.full(6, np.nan))
     return nsoln, fluxes
 
 
-def findroot(qcdat, wue, init=None):
+def findroot(qcdata, wue, init=None):
     """Solve numerically for (corr_cp_cr, var_cp).
 
     Parameters
     ----------
-    qcdat : namedtuple or equivalent namespace
+    qcdata : namedtuple or equivalent namespace
         :class:`~fluxpart.containers.QCData`
     wue : float
         Leaf-level water use efficiency, `wue` < 0, kg CO2 / kg H2O.
@@ -150,26 +150,26 @@ def findroot(qcdat, wue, init=None):
     # scale parameters so that functions and parameter values are better
     # centered and have values around 10^0 to 10^2
 
-    qcdat = SimpleNamespace(
-        var_q=qcdat.var_q * 1e6,
-        var_c=qcdat.var_c * 1e12,
-        wq=qcdat.wq * 1e3,
-        wc=qcdat.wc * 1e6,
-        corr_qc=qcdat.corr_qc)
+    qcdata = SimpleNamespace(
+        var_q=qcdata.var_q * 1e6,
+        var_c=qcdata.var_c * 1e12,
+        wq=qcdata.wq * 1e3,
+        wc=qcdata.wc * 1e6,
+        corr_qc=qcdata.corr_qc)
     wue = wue * 1e3
 
     if init is None:
         init_corr_cp_cr = -0.8
-        varcp_ubound0 = qcdat.var_c / (1 - init_corr_cp_cr**2)
-        varcp_ubound1 = wue**2 * qcdat.var_q / (1 - init_corr_cp_cr**2)
+        varcp_ubound0 = qcdata.var_c / (1 - init_corr_cp_cr**2)
+        varcp_ubound1 = wue**2 * qcdata.var_q / (1 - init_corr_cp_cr**2)
         init = (init_corr_cp_cr, 0.5 * min(varcp_ubound0, varcp_ubound1))
 
-    co2_ids = (1, 0) if qcdat.wc < 0 else (0, )
+    co2_ids = (1, 0) if qcdata.wc < 0 else (0, )
     for co2_id in co2_ids:
         co2soln_id = co2_id
         try:
             soln = optimize.root(residual_func, init, method='hybr',
-                                 args=(qcdat, wue, co2soln_id))
+                                 args=(qcdata, wue, co2soln_id))
         except ValueError as err:
             soln = {'success': False,
                     'message': 'optimize.root fail: ' + err.args[0],
@@ -181,7 +181,7 @@ def findroot(qcdat, wue, init=None):
         corr_cp_cr, var_cp = soln['x']
         valid_root, valid_root_mssg = isvalid_root(corr_cp_cr, var_cp)
         if var_cp > 0:
-            wcr_ov_wcp = flux_ratio(var_cp, corr_cp_cr, qcdat, 'co2',
+            wcr_ov_wcp = flux_ratio(var_cp, corr_cp_cr, qcdata, 'co2',
                                     co2soln_id)
             sig_cr = wcr_ov_wcp * math.sqrt(var_cp) / corr_cp_cr
         else:
@@ -205,7 +205,7 @@ def findroot(qcdat, wue, init=None):
         nfev=soln['nfev'])
 
 
-def flux_ratio(var_cp, corr_cp_cr, qcdat, ftype, farg):
+def flux_ratio(var_cp, corr_cp_cr, qcdata, ftype, farg):
     """Compute the nonstomatal:stomatal ratio of the H2O or CO2 flux.
 
     The ratio (either wqe/wqt or wcr/wcp) is found by solving Eq. 13
@@ -213,7 +213,7 @@ def flux_ratio(var_cp, corr_cp_cr, qcdat, ftype, farg):
 
     Parameters
     ---------
-    qcdat : namedtuple or equivalent namespace
+    qcdata : namedtuple or equivalent namespace
         :class:`~fluxpart.containers.QCData`
     ftype : {'co2', 'h2o'}
         Specifies whether the flux is CO2 or H2O
@@ -240,10 +240,10 @@ def flux_ratio(var_cp, corr_cp_cr, qcdat, ftype, farg):
 
     if ftype == 'co2' or ftype == 'CO2':
         sign = 1 if farg == 1 else -1
-        num = qcdat.var_c
+        num = qcdata.var_c
     elif ftype == 'h2o' or ftype == 'H2O':
         sign = 1
-        num = farg**2 * qcdat.var_q
+        num = farg**2 * qcdata.var_q
     else:
         raise ValueError("ftype must be 'co2' or 'h2o'")
     disc = 1 - 1 / corr_cp_cr**2 + num / var_cp / corr_cp_cr**2
@@ -254,19 +254,19 @@ def flux_ratio(var_cp, corr_cp_cr, qcdat, ftype, farg):
     return fratio
 
 
-def flux_components(var_cp, corr_cp_cr, qcdat, wue, co2soln_id):
+def flux_components(var_cp, corr_cp_cr, qcdata, wue, co2soln_id):
     """Calculate flux components for given (var_cp, corr_cp_cr) pair."""
-    wcr_ov_wcp = flux_ratio(var_cp, corr_cp_cr, qcdat, 'co2', co2soln_id)
+    wcr_ov_wcp = flux_ratio(var_cp, corr_cp_cr, qcdata, 'co2', co2soln_id)
     # TODO: handle wcr_ov_wcp ~ -1
-    wcp = qcdat.wc / (wcr_ov_wcp + 1)
-    wcr = qcdat.wc - wcp
+    wcp = qcdata.wc / (wcr_ov_wcp + 1)
+    wcr = qcdata.wc - wcp
     wqt = wcp / wue
-    wqe = qcdat.wq - wqt
-    return FluxComponents(wq=qcdat.wq, wqt=wqt, wqe=wqe,
-                          wc=qcdat.wc, wcp=wcp, wcr=wcr)
+    wqe = qcdata.wq - wqt
+    return FluxComponents(wq=qcdata.wq, wqt=wqt, wqe=wqe,
+                          wc=qcdata.wc, wcp=wcp, wcr=wcr)
 
 
-def residual_func(x, qcdat, wue, co2soln_id):
+def residual_func(x, qcdata, wue, co2soln_id):
     """Residual function used with root finding routine.
 
     The two components of the residual are for Eqs. 15 and 18 of [SS08]_.
@@ -274,16 +274,16 @@ def residual_func(x, qcdat, wue, co2soln_id):
     """
 
     corr_cp_cr, var_cp = x
-    wcr_ov_wcp = flux_ratio(var_cp, corr_cp_cr, qcdat, 'co2', co2soln_id)
-    wqe_ov_wqt = flux_ratio(var_cp, corr_cp_cr, qcdat, 'h2o', wue)
+    wcr_ov_wcp = flux_ratio(var_cp, corr_cp_cr, qcdata, 'co2', co2soln_id)
+    wqe_ov_wqt = flux_ratio(var_cp, corr_cp_cr, qcdata, 'h2o', wue)
 
     # Eq. 3, "f1"
-    lhs = wue * qcdat.wq / qcdat.wc * (wcr_ov_wcp + 1)
+    lhs = wue * qcdata.wq / qcdata.wc * (wcr_ov_wcp + 1)
     rhs = wqe_ov_wqt + 1
     resid1 = lhs - rhs
 
     # Eq. 4, "f2"
-    lhs = wue * qcdat.corr_qc * math.sqrt(qcdat.var_c * qcdat.var_q) / var_cp
+    lhs = wue * qcdata.corr_qc * math.sqrt(qcdata.var_c * qcdata.var_q) / var_cp
     rhs = (
         1 + wqe_ov_wqt + wcr_ov_wcp + wqe_ov_wqt * wcr_ov_wcp / corr_cp_cr**2)
     resid2 = lhs - rhs

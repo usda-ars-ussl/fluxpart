@@ -93,9 +93,10 @@ def flux_partition(fname, meas_wue=None, hfd_options=None, wue_options=None,
     dict
         {'result': :class:`~fluxpart.containers.Result`,
         'fluxes': :class:`~fluxpart.containers.Fluxes`,
-        'datsumm': :class:`~fluxpart.containers.HFSummary`,
+        'hfsummary': :class:`~fluxpart.containers.HFSummary`,
         'wue': :class:`~fluxpart.containers.WUE`,
-        'numsoln': :class:`~fluxpart.containers.NumerSoln`,
+        'numersoln': :class:`~fluxpart.containers.NumerSoln`,
+        'qcdata': :class:`~fluxpart.containers.QCData`,
         'label': `label`}
 
     Other Parameters
@@ -226,10 +227,10 @@ def flux_partition(fname, meas_wue=None, hfd_options=None, wue_options=None,
         return {'label': label,
                 'result': result,
                 'fluxes': Fluxes(*np.full(15, np.nan)),
-                'datsumm': HFSummary(*np.full(18, np.nan)),
+                'hfsummary': HFSummary(*np.full(18, np.nan)),
                 'wue': WUE(*np.full(11, np.nan)),
-                'numsoln': NumerSoln(*np.full(10, np.nan)),
-                'qcdat': QCData(*np.full(6, np.nan))}
+                'numersoln': NumerSoln(*np.full(10, np.nan)),
+                'qcdata': QCData(*np.full(6, np.nan))}
 
     # preliminary data processing and analysis
     hfdat.truncate()
@@ -246,10 +247,10 @@ def flux_partition(fname, meas_wue=None, hfd_options=None, wue_options=None,
         return {'label': label,
                 'result': result,
                 'fluxes': Fluxes(*np.full(15, np.nan)),
-                'datsumm': hfsum,
+                'hfsummary': hfsum,
                 'wue': WUE(*np.full(11, np.nan)),
-                'numsoln': NumerSoln(*np.full(10, np.nan)),
-                'qcdat': QCData(*np.full(6, np.nan))}
+                'numersoln': NumerSoln(*np.full(10, np.nan)),
+                'qcdata': QCData(*np.full(6, np.nan))}
 
     # exit if water vapor flux is downward (negative)
     if hfsum.cov_w_q <= 0:
@@ -260,10 +261,10 @@ def flux_partition(fname, meas_wue=None, hfd_options=None, wue_options=None,
         return {'label': label,
                 'result': result,
                 'fluxes': Fluxes(*np.full(15, np.nan)),
-                'datsumm': hfsum,
+                'hfsummary': hfsum,
                 'wue': WUE(*np.full(11, np.nan)),
-                'numsoln': NumerSoln(*np.full(10, np.nan)),
-                'qcdat': QCData(*np.full(6, np.nan))}
+                'numersoln': NumerSoln(*np.full(10, np.nan)),
+                'qcdata': QCData(*np.full(6, np.nan))}
 
     # get or calculate water use efficiency
     if meas_wue:
@@ -279,10 +280,10 @@ def flux_partition(fname, meas_wue=None, hfd_options=None, wue_options=None,
         return {'label': label,
                 'result': result,
                 'fluxes': Fluxes(*np.full(15, np.nan)),
-                'datsumm': hfsum,
+                'hfsummary': hfsum,
                 'wue': leaf_wue,
-                'numsoln': NumerSoln(*np.full(10, np.nan)),
-                'qcdat': QCData(*np.full(6, np.nan))}
+                'numersoln': NumerSoln(*np.full(10, np.nan)),
+                'qcdata': QCData(*np.full(6, np.nan))}
 
     # compute partitioned fluxes
     adjusting_fluxes = part_options['adjusting_fluxes']
@@ -313,10 +314,10 @@ def flux_partition(fname, meas_wue=None, hfd_options=None, wue_options=None,
     return {'label': label,
             'result': result,
             'fluxes': fluxes,
-            'datsumm': hfsum,
+            'hfsummary': hfsum,
             'wue': leaf_wue,
-            'numsoln': pout['numsoln'],
-            'qcdat': pout['qcdat']}
+            'numersoln': pout['numersoln'],
+            'qcdata': pout['qcdata']}
 
 
 def _converter_func(slope, intercept):

@@ -1,4 +1,4 @@
->>> print(out['datsumm'])
+>>> print(out['hfsummary'])
 HFSummary(
     T = 28.4 C,
     P = 100.2 kPa,
@@ -10,6 +10,7 @@ HFSummary(
     rho_co2 = 661.3 mg/m^3,
     var_vapor = 0.4225 (g/m^3)^2,
     var_co2 = 6.669 (mg/m^3)^2,
+    corr_q_c = -0.9067,
     cov_w_q = 0.1524 g/m^2/s,
     H = -0.5479 W/m^2,
     cov_w_c = 176.5 mg/m^2/s,

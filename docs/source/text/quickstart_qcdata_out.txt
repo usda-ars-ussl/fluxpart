@@ -1,4 +1,4 @@
->>> print(out['qcdat'])
+>>> print(out['qcdata'])
 QCData(
     var_q = 0.3442 (g/m^3)^2,
     var_c = 5.962 (mg/m^3)^2,

@@ -43,7 +43,7 @@ def test_flux_partition():
         wue_options=wue_data,
         hfd_options=hfd)
 
-    npt.assert_allclose(result['numsoln'].var_cp, 18.9272e-12, atol=1e-12)
+    npt.assert_allclose(result['numersoln'].var_cp, 18.9272e-12, atol=1e-12)
     assert_flux_components(result['fluxes'], matlab_fluxes)
 
     # soln is obtained after some wavelet filtering
@@ -65,7 +65,7 @@ def test_flux_partition():
         wue_options=wue_data,
         hfd_options=hfd)
 
-    npt.assert_allclose(result['numsoln'].var_cp, 15.2944e-12, atol=1e-12)
+    npt.assert_allclose(result['numersoln'].var_cp, 15.2944e-12, atol=1e-12)
     assert_flux_components(result['fluxes'], matlab_fluxes)
 
 

@@ -317,8 +317,8 @@ Partitioning results
 
 :func:`~fluxpart.fluxpart.flux_partition` returns a dictionary (which was given
 the name ``out`` in the Quickstart_ example).  The results dictionary has 7
-fields: ``'result'``, ``'fluxes'``, ``'datsumm'``, ``'wue'``, ``'numsoln'``,
-``'qcdat'``, and ``'label'``.
+fields: ``'result'``, ``'fluxes'``, ``'hfsummary'``, ``'wue'``, ``'numersoln'``,
+``'qcdata'``, and ``'label'``.
 
 String representations of output
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -355,16 +355,16 @@ the ``'fluxes'`` entry is a :class:`~fluxpart.containers.Fluxes` namedtuple
 containing the partitioned fluxes expressed in mass, latent heat, and molar
 units.
 
-'datsumm'
-^^^^^^^^^
+'hfsummary'
+^^^^^^^^^^^
 
-``'datsumm'`` is a :class:`~fluxpart.containers.HFSummary` namedtuple that
+``'hfsummary'`` is a :class:`~fluxpart.containers.HFSummary` namedtuple that
 contains a summary of the high-frequency data (various averages, variances,
-etc.). ``'datsumm'`` summarizes the data series being used in the partitioning
+etc.). ``'hfsummary'`` summarizes the data series being used in the partitioning
 analysis, which may not be the entire data file if, e.g., the file contains bad
 data.
 
-.. literalinclude:: text/quickstart_datsumm_out.txt
+.. literalinclude:: text/quickstart_hfsummary_out.txt
 
 'wue'
 ^^^^^
@@ -377,28 +377,28 @@ containing a summary of the water use efficiency calculation:
 See :class:`~fluxpart.containers.WUE` for an explanation of the various
 attributes.
 
-'numsoln'
-^^^^^^^^^
+'numersoln'
+^^^^^^^^^^^
 
-``'numsoln'`` is a :class:`~fluxpart.containers.NumerSoln` tuple with 
+``'numersoln'`` is a :class:`~fluxpart.containers.NumerSoln` tuple with 
 information about the obtained numerical solution:
 
-.. literalinclude:: text/quickstart_numsoln_out.txt
+.. literalinclude:: text/quickstart_numersoln_out.txt
 
 See :class:`~fluxpart.containers.NumerSoln` for an explanation of the
 attributes.
 
-'qcdat'
-^^^^^^^
+'qcdata'
+^^^^^^^^
 
-The ``'qcdat'`` entry is a :class:`~fluxpart.containers.QCData` tuple holding
+The ``'qcdata'`` entry is a :class:`~fluxpart.containers.QCData` tuple holding
 summary information about the eddy covariance data for q and c. Whereas
-``'datsumm'`` contains information about the data in ``fname``, the values in
-``'qcdat'`` are for the q and c series data analyzed in the final partitioning
+``'hfsummary'`` contains information about the data in ``fname``, the values in
+``'qcdata'`` are for the q and c series data analyzed in the final partitioning
 calculation, which may have been filtered to remove low-frequency (large scale)
 components.
 
-.. literalinclude:: text/quickstart_qcdat_out.txt
+.. literalinclude:: text/quickstart_qcdata_out.txt
 
 The attribute ``wave_lvl`` is a 2-tuple of integers indicating the level of
 filtering that was applied to the data. The second number is the maximum
@@ -410,7 +410,7 @@ present).  ``wave_lvl = (11, 14)`` means that the 3 largest scale components
 of the data were removed in the final analysis.
 
 'label'
-^^^^^^^^
+^^^^^^^
 
 The ``'label'`` results entry is simply whatever was passed to
 :func:`~fluxpart.fluxpart.flux_partition` using the **label** parameter.  The
@@ -477,6 +477,7 @@ matplotlib_ plots of lists of certain
     :width: 70%
     :align: center
 
-The gaps in the total flux curves occur where the friction velocity (ustar) was
-below the specified tolerance (the default is 0.1 m/s), i.e. at times where
-there was insufficient turbulence to apply the eddy covariance method.
+The gaps in the total flux curves occur where a valid solution was not obtained
+or where the friction velocity (ustar) was below the specified tolerance (the
+default is 0.1 m/s), i.e. at times where there was insufficient turbulence to
+apply the eddy covariance method.

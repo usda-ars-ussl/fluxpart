@@ -3,7 +3,7 @@ import numpy.testing as npt
 from fluxpart.partition import partition_from_qc_averages
 
 
-def test_partition_from_qcdat():
+def test_partition_from_qcdata():
     """
     References
     ----------
@@ -15,7 +15,7 @@ def test_partition_from_qcdat():
 
     # April 7 "physical" example from [PRV14] Table 1
     wue = -37.158598e-3
-    qcdat = SimpleNamespace(
+    qcdata = SimpleNamespace(
         var_q=0.411163e-3 ** 2,
         var_c=5.182580e-6 ** 2,
         wq=0.033140e-3,
@@ -29,12 +29,12 @@ def test_partition_from_qcdat():
         wqe=0.020262e-3,
         wcp=-0.476489e-6,
         wcr=0.004381e-6)
-    nsoln, fluxes = partition_from_qc_averages(qcdat, wue)
+    nsoln, fluxes = partition_from_qc_averages(qcdata, wue)
     assert_partition(nsoln, fluxes, desired)
 
     # April 5 "non-physical" example from [PRV14] Table 1
     wue = -24.558131e-3
-    qcdat = SimpleNamespace(
+    qcdata = SimpleNamespace(
         var_q=0.455994e-3 ** 2,
         var_c=4.544450e-6 ** 2,
         wq=0.062700e-3,
@@ -48,31 +48,31 @@ def test_partition_from_qcdat():
         wqe=0.037284e-3,
         wcp=-0.624172e-6,
         wcr=-0.088690e-6)
-    nsoln, fluxes = partition_from_qc_averages(qcdat, wue)
+    nsoln, fluxes = partition_from_qc_averages(qcdata, wue)
     assert_partition(nsoln, fluxes, desired)
 
     # comparable to Ray Anderson peach data, 2012-06-07 1300
     # The valid solution in this case uses the '+' CO2 root
     wue = -7.060177e-3
-    qcdat = SimpleNamespace(
+    qcdata = SimpleNamespace(
         var_q=0.40639e-6,
         var_c=7.68505e-12,
         wq=0.1506337e-3,
         wc=-0.6254288e-6,
         corr_qc=-.9501656)
-    nsoln, fluxes = partition_from_qc_averages(qcdat, wue)
+    nsoln, fluxes = partition_from_qc_averages(qcdata, wue)
     assert nsoln.success and nsoln.validroot
 
     # comparable to Ray Anderson peach data, 2012-06-07 0230
     # The valid solution in this case uses the '-' CO2 root
     wue = -68.77103e-3
-    qcdat = SimpleNamespace(
+    qcdata = SimpleNamespace(
         var_q=0.001326586e-6,
         var_c=9.948297e-12,
         wq=0.00088955655e-3,
         wc=0.07513186e-6,
         corr_qc=0.8886955)
-    nsoln, fluxes = partition_from_qc_averages(qcdat, wue)
+    nsoln, fluxes = partition_from_qc_averages(qcdata, wue)
     assert nsoln.success and nsoln.validroot
 
 
@@ -89,4 +89,4 @@ def assert_partition(nsoln, fluxes, desired):
 
 
 if __name__ == '__main__':
-    test_partition_from_qcdat()
+    test_partition_from_qcdata()

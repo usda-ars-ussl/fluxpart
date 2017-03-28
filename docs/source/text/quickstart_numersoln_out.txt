@@ -1,4 +1,4 @@
->>> print(out['numsoln'])
+>>> print(out['numersoln'])
 NumerSoln(
     corr_cp_cr = -0.9447,
     var_cp = 20.6 (mg/m^3)^2,
@@ -6,7 +6,7 @@ NumerSoln(
     co2soln_id = 1,
     validroot = True,
     validmssg = ,
-    init = (-0.8, 8.28),
+    init = (-0.8, 8.28e+12),
     success = True,
     mssg = The solution converged.,
-    nfev = 16)
+    nfev = 23)

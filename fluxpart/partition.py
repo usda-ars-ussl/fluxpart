@@ -159,7 +159,7 @@ def findroot(qcdata, wue, init=None):
     wue = wue * 1e3
 
     if init is None:
-        init_corr_cp_cr = -0.8
+        init_corr_cp_cr = -0.6
         varcp_ubound0 = qcdata.var_c / (1 - init_corr_cp_cr**2)
         varcp_ubound1 = wue**2 * qcdata.var_q / (1 - init_corr_cp_cr**2)
         init = (init_corr_cp_cr, 0.5 * min(varcp_ubound0, varcp_ubound1))

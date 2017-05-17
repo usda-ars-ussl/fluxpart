@@ -270,6 +270,8 @@ def flux_partition(fname, meas_wue=None, hfd_options=None, wue_options=None,
     if meas_wue:
         leaf_wue = WUE(float(meas_wue), *np.full(10, np.nan))
     else:
+        if wue_options['canopy_ht'] > wue_options['meas_ht']:
+            raise ValueError('meas_ht should be greater than canopy_ht')
         leaf_wue = wue.water_use_efficiency(hfsum, **wue_options)
 
     # exit if wue value is bad

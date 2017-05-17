@@ -36,6 +36,7 @@ coverage.xml
 docs/_build/
 docs/source/_tutorial/data/
 docs/source/_tutorial/results/
+docs/source/_background/
 
 # dotenv
 .env

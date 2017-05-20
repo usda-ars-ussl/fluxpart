@@ -159,11 +159,9 @@ class HFSummary(namedtuple('HFSummary', 'T P Pvap ustar wind_w var_w '
                 ''.format(*dum))
 
 
-class NumerSoln(namedtuple('NumerSoln', 'corr_cp_cr var_cp sig_cr co2soln_id '
-                           'validroot validmssg init success mssg nfev')):
-    """Results of numerical root finding.
-
-    The sought root is (corr_cp_cr, var_cp).
+class RootSoln(namedtuple('RootSoln', 'corr_cp_cr var_cp sig_cr co2soln_id '
+                           'validroot validmssg')):
+    """Results from calcuating the root (corr_cp_cr, var_cp).
 
     Attributes
     ----------
@@ -185,15 +183,6 @@ class NumerSoln(namedtuple('NumerSoln', 'corr_cp_cr var_cp sig_cr co2soln_id '
         physically plausible.
     validmssg : str
         Possibly informative message if `validroot` = False.
-    init : (float, float)
-        (corr_cp_cr, var_cp) pair used to initialize root finding
-        routine.
-    success, mssg, nfev : bool, str, int
-        Status information passed from scipy.optimize.root_.
-
-
-    .. _scipy.optimize.root:
-        http://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.root.html
 
     """
 
@@ -202,26 +191,17 @@ class NumerSoln(namedtuple('NumerSoln', 'corr_cp_cr var_cp sig_cr co2soln_id '
     def __str__(self):
 
         # For some fields, print common units instead of SI
-        try:
-            initial = (self.init[0], 1e12 * self.init[1])
-        except IndexError:
-            initial = (np.nan, np.nan)
         dum = self._replace(
             var_cp=1e12 * self.var_cp,
-            sig_cr=1e6 * self.sig_cr,
-            init = initial)
+            sig_cr=1e6 * self.sig_cr)
 
-        return ('NumerSoln(\n'
+        return ('RootSoln(\n'
                 '    corr_cp_cr = {0:.4},\n'
                 '    var_cp = {1:.4} (mg/m^3)^2,\n'
                 '    sig_cr = {2:.4} mg/m^3,\n'
                 '    co2soln_id = {3},\n'
                 '    validroot = {4},\n'
-                '    validmssg = {5},\n'
-                '    init = ({6[0]:.4}, {6[1]:.4}),\n'
-                '    success = {7},\n'
-                '    mssg = {8},\n'
-                '    nfev = {9})'
+                '    validmssg = {5})'
                 ''.format(*dum))
 
 

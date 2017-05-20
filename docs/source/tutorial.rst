@@ -317,7 +317,7 @@ Partitioning results
 
 :func:`~fluxpart.fluxpart.flux_partition` returns a dictionary (which was given
 the name ``out`` in the Quickstart_ example).  The results dictionary has 7
-fields: ``'result'``, ``'fluxes'``, ``'hfsummary'``, ``'wue'``, ``'numersoln'``,
+fields: ``'result'``, ``'fluxes'``, ``'hfsummary'``, ``'wue'``, ``'rootsoln'``,
 ``'qcdata'``, and ``'label'``.
 
 String representations of output
@@ -377,15 +377,15 @@ containing a summary of the water use efficiency calculation:
 See :class:`~fluxpart.containers.WUE` for an explanation of the various
 attributes.
 
-'numersoln'
-^^^^^^^^^^^
+'rootsoln'
+^^^^^^^^^^
 
-``'numersoln'`` is a :class:`~fluxpart.containers.NumerSoln` tuple with 
-information about the obtained numerical solution:
+``'rootsoln'`` is a :class:`~fluxpart.containers.RootSoln` tuple with 
+information about the obtained numerical roots:
 
-.. literalinclude:: text/quickstart_numersoln_out.txt
+.. literalinclude:: text/quickstart_rootsoln_out.txt
 
-See :class:`~fluxpart.containers.NumerSoln` for an explanation of the
+See :class:`~fluxpart.containers.RootSoln` for an explanation of the
 attributes.
 
 'qcdata'

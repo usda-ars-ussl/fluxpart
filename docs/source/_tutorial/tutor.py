@@ -189,7 +189,7 @@ def main():
     quickstart_out('result')
     quickstart_out('hfsummary')
     quickstart_out('wue')
-    quickstart_out('numersoln')
+    quickstart_out('rootsoln')
     quickstart_out('qcdata')
 
 

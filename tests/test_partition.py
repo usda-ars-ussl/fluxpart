@@ -29,8 +29,8 @@ def test_partition_from_qcdata():
         wqe=0.020262e-3,
         wcp=-0.476489e-6,
         wcr=0.004381e-6)
-    nsoln, fluxes = partition_from_qc_averages(qcdata, wue)
-    assert_partition(nsoln, fluxes, desired)
+    rsoln, fluxes = partition_from_qc_averages(qcdata, wue)
+    assert_partition(rsoln, fluxes, desired)
 
     # April 5 "non-physical" example from [PRV14] Table 1
     wue = -24.558131e-3
@@ -48,8 +48,8 @@ def test_partition_from_qcdata():
         wqe=0.037284e-3,
         wcp=-0.624172e-6,
         wcr=-0.088690e-6)
-    nsoln, fluxes = partition_from_qc_averages(qcdata, wue)
-    assert_partition(nsoln, fluxes, desired)
+    rsoln, fluxes = partition_from_qc_averages(qcdata, wue)
+    assert_partition(rsoln, fluxes, desired)
 
     # comparable to Ray Anderson peach data, 2012-06-07 1300
     # The valid solution in this case uses the '+' CO2 root
@@ -60,8 +60,8 @@ def test_partition_from_qcdata():
         wq=0.1506337e-3,
         wc=-0.6254288e-6,
         corr_qc=-.9501656)
-    nsoln, fluxes = partition_from_qc_averages(qcdata, wue)
-    assert nsoln.success and nsoln.validroot
+    rsoln, fluxes = partition_from_qc_averages(qcdata, wue)
+    assert rsoln.validroot
 
     # comparable to Ray Anderson peach data, 2012-06-07 0230
     # The valid solution in this case uses the '-' CO2 root
@@ -72,14 +72,14 @@ def test_partition_from_qcdata():
         wq=0.00088955655e-3,
         wc=0.07513186e-6,
         corr_qc=0.8886955)
-    nsoln, fluxes = partition_from_qc_averages(qcdata, wue)
-    assert nsoln.success and nsoln.validroot
+    rsoln, fluxes = partition_from_qc_averages(qcdata, wue)
+    assert rsoln.validroot
 
 
-def assert_partition(nsoln, fluxes, desired):
-    if nsoln.success and nsoln.validroot:
-        npt.assert_allclose(nsoln.var_cp, desired.var_cp, atol=1e-14)
-        npt.assert_allclose(nsoln.corr_cp_cr, desired.corr_cp_cr, atol=1e-2)
+def assert_partition(rsoln, fluxes, desired):
+    if rsoln.validroot:
+        npt.assert_allclose(rsoln.var_cp, desired.var_cp, atol=1e-14)
+        npt.assert_allclose(rsoln.corr_cp_cr, desired.corr_cp_cr, atol=1e-2)
         npt.assert_allclose(fluxes.wqt, desired.wqt, atol=1e-7)
         npt.assert_allclose(fluxes.wqe, desired.wqe, atol=1e-7)
         npt.assert_allclose(fluxes.wcp, desired.wcp, atol=1e-9)

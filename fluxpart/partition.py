@@ -1,9 +1,8 @@
 import math
 from types import SimpleNamespace
 import numpy as np
-from scipy import optimize
 import fluxpart.util as util
-from fluxpart.containers import NumerSoln, FluxComponents, QCData
+from fluxpart.containers import RootSoln, FluxComponents, QCData
 
 
 def partition_from_wqc_series(w, q, c, wue, adjust_fluxes=True):
@@ -31,7 +30,7 @@ def partition_from_wqc_series(w, q, c, wue, adjust_fluxes=True):
     dict
         {'valid_partition': bool, 'partmssg': str,
         'fluxcomps': :class:`~fluxpart.containers.FluxComponents`,
-        'numersoln': :class:`~fluxpart.containers.NumerSoln`,
+        'rootsoln': :class:`~fluxpart.containers.RootSoln`,
         'qcdata': :class:`~fluxpart.containers.QCData`}
 
     Notes
@@ -61,9 +60,9 @@ def partition_from_wqc_series(w, q, c, wue, adjust_fluxes=True):
             corr_qc=cov[1, 2] / math.sqrt(cov[1, 1] * cov[2, 2]),
             wave_lvl=(max_decomp_lvl - cnt, max_decomp_lvl))
 
-        nsoln, fcomp = partition_from_qc_averages(qcdata, wue)
+        rsoln, fcomp = partition_from_qc_averages(qcdata, wue)
 
-        if nsoln.success and nsoln.validroot:
+        if rsoln.validroot:
 
             if adjust_fluxes:
                 fcomp = adjust_partitioned_fluxes(fcomp, wue, wq_tot, wc_tot)
@@ -73,25 +72,20 @@ def partition_from_wqc_series(w, q, c, wue, adjust_fluxes=True):
             if valid_partition:
                 break
 
-    if not nsoln.success:
+    if not rsoln.validroot:
         valid_partition = False
-        partition_mssg = 'Root finding failed: ' + nsoln.mssg
-
-    if nsoln.success and not nsoln.validroot:
-        valid_partition = False
-        partition_mssg = ('Root located but not physically valid:'
-                          + nsoln.validmssg)
+        partition_mssg = rsoln.validmssg
     if not valid_partition:
         fcomp = FluxComponents(*np.full(6, np.nan))
 
     return {'valid_partition': valid_partition,
             'partmssg': partition_mssg,
             'fluxcomps': fcomp,
-            'numersoln': nsoln,
+            'rootsoln': rsoln,
             'qcdata': qcdata}
 
 
-def partition_from_qc_averages(qcdata, wue, init=None):
+def partition_from_qc_averages(qcdata, wue):
     """Partition H2O and CO2 fluxes using interval average q and c data.
 
     All arguments are passed directly to the findroot function
@@ -101,31 +95,26 @@ def partition_from_qc_averages(qcdata, wue, init=None):
     qcdata : QCData namedtuple or equivalent namespace
     wue : float, kg CO2 / kg H2O
         Leaf-level water use efficiency, `wue` < 0
-    init : (float, float), optional
-        2-Tuple is initial value for (corr_cp_cr, var_cp).  If `init`
-        = None (default), an initial estimate is calculated internally.
-        Note when specifying initial values: -1 < `corr_cp_cr` < 0, and
-        `var_cp` has units of (kg/m^3)^2.
 
     Returns
     -------
     namedtuples
-        :class:`~fluxpart.containers.NumerSoln`,
+        :class:`~fluxpart.containers.RootSoln`,
         :class:`~fluxpart.containers.FluxComponents`
 
     """
 
-    nsoln = findroot(qcdata, wue, init)
-    if nsoln.success and nsoln.validroot:
-        fluxes = flux_components(nsoln.var_cp, nsoln.corr_cp_cr, qcdata, wue,
-                                 nsoln.co2soln_id)
+    rsoln = findroot(qcdata, wue)
+    if rsoln.validroot:
+        fluxes = flux_components(rsoln.var_cp, rsoln.corr_cp_cr, qcdata, wue,
+                                 rsoln.co2soln_id)
     else:
         fluxes = FluxComponents(*np.full(6, np.nan))
-    return nsoln, fluxes
+    return rsoln, fluxes
 
 
-def findroot(qcdata, wue, init=None):
-    """Solve numerically for (corr_cp_cr, var_cp).
+def findroot(qcdata, wue):
+    """Calculate (corr_cp_cr, var_cp).
 
     Parameters
     ----------
@@ -133,76 +122,89 @@ def findroot(qcdata, wue, init=None):
         :class:`~fluxpart.containers.QCData`
     wue : float
         Leaf-level water use efficiency, `wue` < 0, kg CO2 / kg H2O.
-    init : (float, float), optional
-        2-Tuple is initial value for (corr_cp_cr, var_cp).  If `init`
-        = None (default), an initial estimate is calculated internally.
-        Note when specifying initial values: -1 < corr_cp_cr < 0, and
-        `var_cp` has units of (kg/m^3)^2.
 
     Returns
     -------
     namedtuple
-        :class:`~fluxpart.containers.NumerSoln`
+        :class:`~fluxpart.containers.RootSoln`
 
     """
 
 
-    # scale parameters so that functions and parameter values are better
-    # centered and have values around 10^0 to 10^2
+    # scale dimensional parameters so they have comparable magnitudes
+    # H20: kg - > g
+    # CO2: kg - > mg
 
-    qcdata = SimpleNamespace(
-        var_q=qcdata.var_q * 1e6,
-        var_c=qcdata.var_c * 1e12,
-        wq=qcdata.wq * 1e3,
-        wc=qcdata.wc * 1e6,
-        corr_qc=qcdata.corr_qc)
+    var_q = qcdata.var_q * 1e6
+    var_c = qcdata.var_c * 1e12
+    wq = qcdata.wq * 1e3
+    wc = qcdata.wc * 1e6
+    corr_qc = qcdata.corr_qc
     wue = wue * 1e3
 
-    if init is None:
-        init_corr_cp_cr = -0.6
-        varcp_ubound0 = qcdata.var_c / (1 - init_corr_cp_cr**2)
-        varcp_ubound1 = wue**2 * qcdata.var_q / (1 - init_corr_cp_cr**2)
-        init = (init_corr_cp_cr, 0.5 * min(varcp_ubound0, varcp_ubound1))
+    sd_q, sd_c = math.sqrt(var_q), math.sqrt(var_c)
+    num0 = (corr_qc**2 - 1) * var_c * var_q * wue**2
+    num1 = -2 * corr_qc * sd_c * sd_q * wq * wc  + var_c * wq**2 + var_q * wc**2
+    numer = -num0 * num1
+    denom = (-corr_qc * sd_c * sd_q * (wc + wq * wue) + var_c * wq + var_q * wc * wue)**2
+    var_cp = numer / denom
 
-    co2_ids = (1, 0) if qcdata.wc < 0 else (0, )
-    for co2_id in co2_ids:
-        co2soln_id = co2_id
-        try:
-            soln = optimize.root(residual_func, init, method='hybr',
-                                 args=(qcdata, wue, co2soln_id))
-        except ValueError as err:
-            soln = {'success': False,
-                    'message': 'optimize.root fail: ' + err.args[0],
-                    'nfev': np.nan}
-        if soln['success']:
-            break
+    numer = - (corr_qc**2 - 1) * var_c * var_q * (wc - wq * wue)**2
+    den0 = -2 * corr_qc * sd_c * sd_q * wue + var_c + var_q * wue**2
+    den1 = -2 * corr_qc * sd_c * sd_q * wc * wq + var_c * wq**2 + var_q * wc**2
+    denom = den0 * den1
+    rho_sq = numer / denom
+    corr_cp_cr = -math.sqrt(rho_sq)
 
-    if soln['success']:
-        corr_cp_cr, var_cp = soln['x']
-        valid_root, valid_root_mssg = isvalid_root(corr_cp_cr, var_cp)
-        if var_cp > 0:
+    valid_root, valid_root_mssg = isvalid_root(corr_cp_cr, var_cp)
+
+    co2soln_id = None
+    sig_cr = np.nan
+    if valid_root:
+        valid_root = False
+        valid_root_mssg = 'trial root did not satisfy equations'
+        scaled_qcdata = QCData(
+            wq=wq,
+            wc=wc,
+            var_q=var_q,
+            var_c=var_c,
+            corr_qc=corr_qc,
+            wave_lvl=None)
+
+        tol = 1e-12
+        r0 = residual_func((corr_cp_cr, var_cp), scaled_qcdata, wue, 0)
+        r1 = residual_func((corr_cp_cr, var_cp), scaled_qcdata, wue, 1)
+
+        if abs(r0[0]) < tol and abs(r0[1]) < tol:
+            co2soln_id = 0
+            valid_root = True
+            valid_root_mssg = ""
+        if abs(r1[0]) < tol and abs(r1[1]) < tol:
+            assert not co2soln_id
+            co2soln_id = 1
+            valid_root = True
+            valid_root_mssg = ""
+
+        if valid_root:
+            qcdata = SimpleNamespace(
+                var_q=var_q,
+                var_c=var_c,
+                wq=wq,
+                wc=wc,
+                corr_qc=corr_qc)
+
             wcr_ov_wcp = flux_ratio(var_cp, corr_cp_cr, qcdata, 'co2',
                                     co2soln_id)
             sig_cr = wcr_ov_wcp * math.sqrt(var_cp) / corr_cp_cr
-        else:
-            sig_cr = np.nan
-    else:
-        var_cp, corr_cp_cr = np.nan, np.nan
-        sig_cr = np.nan
-        valid_root, valid_root_mssg = False, ''
 
     # re-scale dimensional variables to SI units
-    return NumerSoln(
+    return RootSoln(
         corr_cp_cr=corr_cp_cr,
         var_cp=var_cp * 1e-12,
         sig_cr=sig_cr * 1e-6,
         co2soln_id=co2soln_id,
         validroot=valid_root,
-        validmssg=valid_root_mssg,
-        success=soln['success'],
-        mssg=soln['message'],
-        init=init,
-        nfev=soln['nfev'])
+        validmssg=valid_root_mssg)
 
 
 def flux_ratio(var_cp, corr_cp_cr, qcdata, ftype, farg):

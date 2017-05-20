@@ -1,0 +1,8 @@
+>>> print(out['rootsoln'])
+RootSoln(
+    corr_cp_cr = -0.9447,
+    var_cp = 20.6 (mg/m^3)^2,
+    sig_cr = 2.352 mg/m^3,
+    co2soln_id = 1,
+    validroot = True,
+    validmssg = )

@@ -2,7 +2,7 @@ import os
 from setuptools import setup
 
 
-VERSION = '0.1.0-alpha.1'
+VERSION = '0.1.0-beta'
 
 LONG = ("Python 3 module implementing the Scanlon and Sahu (2008) procedure "
         "for partitioning eddy covariance measurements of water vapor and "
@@ -21,7 +21,7 @@ setup(
     author_email='todd.skaggs@ars.usda.gov',
     license='Public Domain CC0',
     classifiers=[
-        'Development Status :: 3 - Alpha',
+        'Development Status :: 4 - Beta',
         'Intended Audience :: Science/Research',
         'Topic :: Scientific/Engineering',
         'License :: CC0 1.0 Universal (CC0 1.0) Public Domain Dedication',
@@ -29,7 +29,7 @@ setup(
         'Programming Language :: Python :: 3.5',
     ],
     packages=['fluxpart'],
-    install_requires=['numpy', 'scipy', 'matplotlib', 'pywavelets'],
+    install_requires=['numpy', 'matplotlib', 'pywavelets'],
     zip_safe=False,
     tests_require=['numpy'],
     test_suite='tests',

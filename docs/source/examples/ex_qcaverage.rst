@@ -37,19 +37,15 @@ A flux partitioning solution for this data can found with::
     ...     wq=0.033140e-3,            #  kg / m^2 / s
     ...     wc=-0.472108e-6,           #  kg / m^2 / s
     ...     corr_qc=-0.881017)
-    >>> nsoln, fluxcom = partition_from_qc_averages(qcdat, wue)
-    >>> print(nsoln)
-    NumerSoln(
+    >>> rsoln, fluxcom = partition_from_qc_averages(qcdat, wue)
+    >>> print(rsoln)
+    RootSoln(
         corr_cp_cr = -0.7585,
         var_cp = 27.36 (mg/m^3)^2,
         sig_cr = 0.06352 mg/m^3,
         co2soln_id = 1,
         validroot = True,
-        validmssg = ,
-        init = (-0.8, 37.3),
-        success = True,
-        mssg = The solution converged.,
-        nfev = 10)
+        validmssg = )
     >>> print(fluxcom)
     FluxComponents(
         wq = 0.03314 g/m^2/s,
@@ -83,19 +79,15 @@ The above data are for the "April 7 2010" example in Table 1 of [PRV14]_.
     ...    wq=0.062700e-3,
     ...    wc=-0.712862e-6,
     ...    corr_qc=-0.922292)
-    >>> nsoln, fluxcom = partition_from_qc_averages(qcdat, wue)
-    >>> print(nsoln)
-    NumerSoln(
+    >>> rsoln, fluxcom = partition_from_qc_averages(qcdat, wue)
+    >>> print(rsoln)
+    RootSoln(
         corr_cp_cr = -0.7247,
         var_cp = 15.61 (mg/m^3)^2,
         sig_cr = -0.7749 mg/m^3,
         co2soln_id = 1,
         validroot = True,
-        validmssg = ,
-        init = (-0.8, 28.68),
-        success = True,
-        mssg = The solution converged.,
-        nfev = 13)
+        validmssg = )
     >>> print(fluxcom)
     FluxComponents(
         wq = 0.0627 g/m^2/s,
@@ -105,8 +97,8 @@ The above data are for the "April 7 2010" example in Table 1 of [PRV14]_.
         wcp = -0.6242 mg/m^2/s,
         wcr = -0.0887 mg/m^2/s)
 
-The results again match those in [PRV14]_. Although the numerical solution
-converges, the obtained flux components are not physically allowable because
+The results again match those in [PRV14]_. Although a legal root is found,
+the obtained flux components are not physically allowable because
 the respiration CO2 flux is wcr < 0 (directed toward the land surface).  Note
 that :func:`~fluxpart.partition.partition_from_qc_averages` returns the
 obtained fluxes without checking their validity. The function

@@ -57,3 +57,31 @@ def plot_fluxes(fp_results, figtitle=None):
     plt.gcf().autofmt_xdate()
     fig.tight_layout()
     return fig
+
+
+def plot_fluxes_mass(fp_results, figtitle=None):
+    """Note: converts Fq and Fc from SI to common units"""
+    plt.style.use(PLTSTYLE)
+    fcr = [1e6 * r['fluxes'].Fcr for r in fp_results]
+    fcp = [1e6 * r['fluxes'].Fcp for r in fp_results]
+    fc = [1e6 * r['fluxes'].Fc for r in fp_results]
+    fqe = [1e3 * r['fluxes'].Fqe for r in fp_results]
+    fqt = [1e3 * r['fluxes'].Fqt for r in fp_results]
+    fq = [1e3 * r['fluxes'].Fq for r in fp_results]
+    times = [r['label'] or i for i, r in enumerate(fp_results)]
+    fig, (ax0, ax1) = plt.subplots(2, 1, figsize=(6, 6), sharex='all')
+    ax0.plot(times, fc, label='Total')
+    ax0.plot(times, fcr, 'o', label='Respiration')
+    ax0.plot(times, fcp, '^', label='Photosynthesis')
+    ax1.plot(times, fq, label='Total')
+    ax1.plot(times, fqe, 'o', label='Evaporation')
+    ax1.plot(times, fqt, '^', label='Transpiration')
+    ax0.set_ylabel(r'CO2 $[\mathrm{mg/m^2/s}]$')
+    ax1.set_ylabel(r'H2O $[\mathrm{g/m^2/s}]$')
+    ax0.legend(loc='best', fontsize=10)
+    ax1.legend(loc='best', fontsize=10)
+    if figtitle:
+        fig.suptitle(figtitle)
+    plt.gcf().autofmt_xdate()
+    fig.tight_layout()
+    return fig

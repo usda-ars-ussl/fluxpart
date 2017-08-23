@@ -1,12 +1,14 @@
+from math import exp
 import pkg_resources
 import numpy as np
 
 import fluxpart.partition as fp
 import fluxpart.wue as wue
 import fluxpart.util as util
-from fluxpart.hfdata import HFData
+import fluxpart.hfdata as hfdata
 from fluxpart.containers import Fluxes, WUE, Result, RootSoln, HFSummary
 from fluxpart.containers import QCData
+from fluxpart.constants import SPECIFIC_GAS_CONSTANT as Rgas
 
 DEFAULT_WUE_OPTIONS = {
     'ci_mod': 'const_ratio',
@@ -29,6 +31,15 @@ DEFAULT_PART_OPTIONS = {
     'adjusting_fluxes': True}
 
 VERSION = pkg_resources.require("fluxpart")[0].version
+
+NULL_RESULT = {
+    'label': "",
+    'result': Result(*([""] * 5)),
+    'fluxes': Fluxes(*np.full(15, np.nan)),
+    'hfsummary': HFSummary(*np.full(18, np.nan)),
+    'wue': WUE(*np.full(12, np.nan)),
+    'rootsoln': RootSoln(*np.full(6, np.nan)),
+    'qcdata': QCData(*np.full(6, np.nan))}
 
 
 def flux_partition(fname, meas_wue=None, hfd_options=None, wue_options=None,
@@ -194,6 +205,7 @@ def flux_partition(fname, meas_wue=None, hfd_options=None, wue_options=None,
 
     """
 
+    null_result = NULL_RESULT
     # py3.5 dictionary merge/update
     hfd_options = {**DEFAULT_HFD_OPTIONS, **(hfd_options or {})}
     wue_options = {**DEFAULT_WUE_OPTIONS, **(wue_options or {})}
@@ -217,20 +229,16 @@ def flux_partition(fname, meas_wue=None, hfd_options=None, wue_options=None,
 
     # read high frequency data
     try:
-        hfdat = HFData(fname, cols=usecols, converters=converters,
-                       **hfd_options)
-    except (TypeError, ValueError) as err:
-        mssg = 'HFData read fail: ' + err.args[0]
+        hfdat = hfdata.HFData(fname, cols=usecols, converters=converters,
+                              **hfd_options)
+    except hfdata.Error as err:
+        mssg = 'High frequency data error: ' + err.args[0]
         result = Result(version=VERSION, dataread=False,
                         attempt_partition=False, valid_partition=False,
                         mssg=mssg)
-        return {'label': label,
-                'result': result,
-                'fluxes': Fluxes(*np.full(15, np.nan)),
-                'hfsummary': HFSummary(*np.full(18, np.nan)),
-                'wue': WUE(*np.full(11, np.nan)),
-                'rootsoln': RootSoln(*np.full(6, np.nan)),
-                'qcdata': QCData(*np.full(6, np.nan))}
+        return {**null_result,
+                'label': label,
+                'result': result}
 
     # preliminary data processing and analysis
     hfdat.truncate()
@@ -244,13 +252,24 @@ def flux_partition(fname, meas_wue=None, hfd_options=None, wue_options=None,
                 format(hfsum.ustar, ustar_tol))
         result = Result(version=VERSION, dataread=True, attempt_partition=False,
                         valid_partition=False, mssg=mssg)
-        return {'label': label,
+        return {**null_result,
+                'label': label,
                 'result': result,
-                'fluxes': Fluxes(*np.full(15, np.nan)),
-                'hfsummary': hfsum,
-                'wue': WUE(*np.full(11, np.nan)),
-                'rootsoln': RootSoln(*np.full(6, np.nan)),
-                'qcdata': QCData(*np.full(6, np.nan))}
+                'hfsummary': hfsum}
+
+    # exit if atmospheric vapor pressure deficit is <= 0
+    Tr = 1 - 373.15 / hfsum.T
+    esat = 101325. * (
+        exp(13.3185 * Tr - 1.9760 * Tr**2 - 0.6445 * Tr**3 - 0.1299 * Tr**4))
+    vpd = esat - hfsum.rho_vapor * Rgas.vapor * hfsum.T
+    if vpd <= 0:
+        mssg = 'Vapor pressure deficit {}'.format(vpd)
+        result = Result(version=VERSION, dataread=True, attempt_partition=False,
+                        valid_partition=False, mssg=mssg)
+        return {**null_result,
+                'label': label,
+                'result': result,
+                'hfsummary': hfsum}
 
     # exit if water vapor flux is downward (negative)
     if hfsum.cov_w_q <= 0:
@@ -258,34 +277,24 @@ def flux_partition(fname, meas_wue=None, hfd_options=None, wue_options=None,
                 'algorithm'.format(hfsum.cov_w_q))
         result = Result(version=VERSION, dataread=True, attempt_partition=False,
                         valid_partition=False, mssg=mssg)
-        return {'label': label,
+        return {**null_result,
+                'label': label,
                 'result': result,
-                'fluxes': Fluxes(*np.full(15, np.nan)),
-                'hfsummary': hfsum,
-                'wue': WUE(*np.full(11, np.nan)),
-                'rootsoln': RootSoln(*np.full(6, np.nan)),
-                'qcdata': QCData(*np.full(6, np.nan))}
+                'hfsummary': hfsum}
 
     # get or calculate water use efficiency
     if meas_wue:
-        leaf_wue = WUE(float(meas_wue), *np.full(10, np.nan))
+        leaf_wue = WUE(float(meas_wue), *np.full(11, np.nan))
     else:
-        if wue_options['canopy_ht'] > wue_options['meas_ht']:
-            raise ValueError('meas_ht should be greater than canopy_ht')
-        leaf_wue = wue.water_use_efficiency(hfsum, **wue_options)
-
-    # exit if wue value is bad
-    if not leaf_wue.wue < 0:
-        mssg = ('wue={} must be less than zero'.format(leaf_wue.wue))
-        result = Result(version=VERSION, dataread=True, attempt_partition=False,
-                        valid_partition=False, mssg=mssg)
-        return {'label': label,
-                'result': result,
-                'fluxes': Fluxes(*np.full(15, np.nan)),
-                'hfsummary': hfsum,
-                'wue': leaf_wue,
-                'rootsoln': RootSoln(*np.full(6, np.nan)),
-                'qcdata': QCData(*np.full(6, np.nan))}
+        try:
+            leaf_wue = wue.water_use_efficiency(hfsum, **wue_options)
+        except wue.Error as err:
+            result = Result(version=VERSION, dataread=True, attempt_partition=False,
+                            valid_partition=False, mssg=err.args[0])
+            return {**null_result,
+                    'label': label,
+                    'result': result,
+                    'hfsummary': hfsum}
 
     # compute partitioned fluxes
     adjusting_fluxes = part_options['adjusting_fluxes']

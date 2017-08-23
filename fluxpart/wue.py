@@ -18,6 +18,17 @@ CI_DEFAULT_PARAMS = {
            'linear': (1, 2.7e-4)}}
 
 
+class Error(Exception):
+    pass
+
+
+def sat_vapor_press(t_kelvin):
+    """Return saturation vapor pressure, e_sat."""
+    tr = 1 - 373.15 / t_kelvin
+    return 101325. * (
+        exp(13.3185 * tr - 1.9760 * tr**2 - 0.6445 * tr**3 - 0.1299 * tr**4))
+
+
 def water_use_efficiency(hfs, meas_ht, canopy_ht, ppath, ci_mod,
                          ci_mod_param=None, leaf_temper=None,
                          leaf_temper_corr=0):
@@ -122,6 +133,9 @@ def water_use_efficiency(hfs, meas_ht, canopy_ht, ppath, ci_mod,
 
     """
 
+    if canopy_ht > meas_ht:
+        raise Error('canopy_ht is less than meas_ht')
+
     # Assume zero-plane and roughness params for vapor and CO2 are the same.
     # d0 = Zero-plane displacement height (L), Eq. 5.2 of [CN98]
     d0 = 0.65 * canopy_ht
@@ -150,13 +164,15 @@ def water_use_efficiency(hfs, meas_ht, canopy_ht, ppath, ci_mod,
     ambient_h2o = (hfs.rho_vapor + hfs.cov_w_q * arg)
     ambient_co2 = (hfs.rho_co2 + hfs.cov_w_c * arg)
 
-    leaf_T = (leaf_temper or hfs.T) + leaf_temper_corr
+    # Ambient vapor pressure deficit `vpd`
+    esat = sat_vapor_press(hfs.T)
+    vpd = esat - hfs.rho_vapor * Rgas.vapor * hfs.T
+    if vpd < 0:
+        raise Error('Negative vapor pressure deficit {}'.format(vpd))
+
     # Intercellular saturation vapor pressure `esat`
-    Tr = 1 - 373.15 / leaf_T
-    esat = 101325. * (
-        exp(13.3185 * Tr - 1.9760 * Tr**2 - 0.6445 * Tr**3 - 0.1299 * Tr**4))
-    # Intercellular vapor pressure deficit `vpd`
-    vpd = esat - hfs.rho_vapor * Rgas.vapor * leaf_T
+    leaf_T = (leaf_temper or hfs.T) + leaf_temper_corr
+    esat = sat_vapor_press(leaf_T)
 
     # Intercellular vapor density.
     eps = MW.vapor / MW.dryair
@@ -169,7 +185,7 @@ def water_use_efficiency(hfs, meas_ht, canopy_ht, ppath, ci_mod,
     ci_mod_name = ci_mod[0]
     if ci_mod_name == 'sqrt' and ppath == 'C4':
         err = "Combination of 'sqrt' ci model and 'C4' ppath not enabled"
-        raise ValueError(err)
+        raise Error(err)
     ci_mod_params = ci_mod[1] or CI_DEFAULT_PARAMS[ppath][ci_mod_name]
 
     ci_dispatch = {
@@ -180,6 +196,13 @@ def water_use_efficiency(hfs, meas_ht, canopy_ht, ppath, ci_mod,
     inter_co2 = ci_dispatch[ci_mod_name](ci_mod_params)
 
     wue = 0.7 * (ambient_co2 - inter_co2) / (ambient_h2o - inter_h2o)
+
+    if ambient_co2 <= inter_co2:
+        mssg = 'WUE estimate, ci={}, ca={}'.format(ambient_co2, inter_co2)
+        raise Error(mssg)
+    if ambient_h2o >= inter_h2o:
+        mssg = 'WUE estimate, qi={}, qa={}'.format(ambient_h2o, inter_h2o)
+        raise Error(mssg)
 
     return WUE(
         wue=wue,

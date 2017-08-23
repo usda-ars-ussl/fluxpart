@@ -10,6 +10,10 @@ from fluxpart.constants import SPECIFIC_HEAT_CAPACITY as CP
 from fluxpart.constants import SPECIFIC_GAS_CONSTANT as GC
 
 
+class Error(Exception):
+    pass
+
+
 class HFData:
     """High-frequency eddy covariance data.
 
@@ -116,8 +120,12 @@ class HFData:
             # for later convenience
             flag_dict = dict(zip(flag_names, goodvals))
 
-        data = np.genfromtxt(fname, usecols=usecols, dtype=all_dtype,
-                             names=all_names, converters=converters, **kwargs)
+        try:
+            data = np.genfromtxt(fname, usecols=usecols, dtype=all_dtype,
+                                 names=all_names, converters=converters,
+                                 **kwargs)
+        except TypeError as err:
+            raise Error(err.args[0])
 
         # 1D bool mask is True if any `data` field is missing (=nan)
         mask = np.isnan(data[var_names].view(float).reshape(-1, 7)).any(axis=1)
@@ -143,7 +151,7 @@ class HFData:
         data_frac = len_max_slice / data.shape[0]
         if data_frac < rd_tol or len_max_slice < ad_tol:
             self.data_table = None
-            raise ValueError(
+            raise Error(
                 'HF Data read but rejected because the longest continuous run '
                 'of valid data was too short on a relative (length data / '
                 'total length) = {:.4} < dtol = {:.4}) AND/OR absolute basis '

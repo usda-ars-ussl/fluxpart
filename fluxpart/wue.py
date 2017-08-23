@@ -190,6 +190,7 @@ def water_use_efficiency(hfs, meas_ht, canopy_ht, ppath, ci_mod,
         vpd=vpd,
         ppath=ppath,
         meas_ht=meas_ht,
+        leaf_temper=leaf_T,
         canopy_ht=canopy_ht,
         ci_mod=ci_mod_name,
         ci_mod_param=ci_mod_params)

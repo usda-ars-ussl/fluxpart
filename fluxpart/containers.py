@@ -281,7 +281,8 @@ class Result(namedtuple('Result',
 
 class WUE(namedtuple('WUE',
                      'wue inter_h2o inter_co2 ambient_h2o ambient_co2 vpd '
-                     'ci_mod ci_mod_param ppath meas_ht canopy_ht')):
+                     'ci_mod ci_mod_param leaf_temper ppath meas_ht '
+                     'canopy_ht')):
     """Summary of leaf-level water use efficiency calculation.
 
     Attributes
@@ -303,7 +304,7 @@ class WUE(namedtuple('WUE',
         concentration.
     ci_mod_param : float or 2-tuple of floats
         Specific paramter values used with `ci_mod`.
-    leaf_temper : float, optional
+    leaf_temper : float
     ppath : {'C3' or 'C4'}
         Photosynthetic pathway.
     meas_ht, canopy_ht : float
@@ -322,7 +323,8 @@ class WUE(namedtuple('WUE',
             inter_co2=1e6 * self.inter_co2,
             ambient_h2o=1e3 * self.ambient_h2o,
             ambient_co2=1e6 * self.ambient_co2,
-            vpd=1e-3 * self.vpd)
+            vpd=1e-3 * self.vpd,
+            leaf_temper=self.leaf_temper - 273.15)
 
         return ('WUE(\n'
                 '    wue = {:.4} mg/g,\n'
@@ -333,6 +335,7 @@ class WUE(namedtuple('WUE',
                 '    vpd = {:.4} kPa,\n'
                 '    ci_mod = {},\n'
                 '    ci_mod_param = {},\n'
+                '    leaf_temper = {:.4} C,\n'
                 '    ppath = {},\n'
                 '    meas_ht = {} m,\n'
                 '    canopy_ht = {} m)'

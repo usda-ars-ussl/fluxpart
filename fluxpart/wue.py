@@ -225,6 +225,6 @@ def _cica_sqrt(ambient_co2, vpd):
     """ci/ca is a function of sqrt(`vpd`/ca)."""
     def ci_func(lambd):
         """Return ci = intercellular CO2 concentration, kg/m^3."""
-        # lambd has units of kg-co2 / m^3 / Pa"""
-        return ambient_co2 * (1 + sqrt(1.6 * lambd * vpd / ambient_co2))
+        # lambd has units of kg-co2 / m^3 / Pa
+        return ambient_co2 * (1 - sqrt(1.6 * lambd * vpd / ambient_co2))
     return ci_func

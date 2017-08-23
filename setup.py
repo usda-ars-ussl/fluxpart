@@ -2,7 +2,7 @@ import os
 from setuptools import setup
 
 
-VERSION = '0.1.0-beta'
+VERSION = '0.1.0-beta-1'
 
 LONG = ("Python 3 module implementing the Scanlon and Sahu (2008) procedure "
         "for partitioning eddy covariance measurements of water vapor and "

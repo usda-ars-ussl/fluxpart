@@ -1,71 +1,54 @@
+{% set name = "fluxpart" %}
+{% set version = "0.1.0b1" %}
+{% set hash_type = "sha256" %}
+{% set hash_value = "c96b52434970c70c7df9c52e2d3acf29afaeea3afafaaf1c378ed0cc2a5547f0" %}
+
 package:
-  name: fluxpart
-  version: "0.1.0a0"
+  name: '{{ name|lower }}'
+  version: '{{ version }}'
 
 source:
-  fn: fluxpart-0.1.0a0.tar.gz
-  url: https://pypi.python.org/packages/f0/3a/ed51e47a4a9cc2a4865a2739cf3ff115c7e7711dcdfc5fadd1c8aa4e720f/fluxpart-0.1.0a0.tar.gz
-  md5: e1748f2eb894732e6ac8b3ab8159e391
-#  patches:
-   # List any patch files here
-   # - fix.patch
+  fn: '{{ name }}-{{ version }}.tar.gz'
+  url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.tar.gz
+  '{{ hash_type }}': '{{ hash_value }}'
 
-# build:
-  # noarch_python: True
-  # preserve_egg_dir: True
-  # entry_points:
-    # Put any entry points (scripts to be generated automatically) here. The
-    # syntax is module:function.  For example
-    #
-    # - fluxpart = fluxpart:main
-    #
-    # Would create an entry point called fluxpart that calls fluxpart.main()
-
-
-  # If this is a new build for the same version, increment the build
-  # number. If you do not include this key, it defaults to 0.
-  # number: 1
+build:
+  number: 0
+  script: python setup.py install  --single-version-externally-managed --record=record.txt
 
 requirements:
   build:
     - python
     - setuptools
     - numpy
-    - scipy
     - matplotlib
     - pywavelets
-
   run:
     - python
     - numpy
-    - scipy
     - matplotlib
     - pywavelets
 
 test:
-  # Python imports
   imports:
     - fluxpart
-
-  # commands:
-    # You can put test commands to be run here.  Use this to test that the
-    # entry points work.
-
-
-  # You can also put a file called run_test.py in the recipe that will be run
-  # at test time.
-
   requires:
     - numpy
-    # Put any additional test requirements here.  For example
-    # - nose
 
 about:
   home: https://github.com/usda-ars-ussl/fluxpart
   license: Public Domain CC0
-  summary: 'Module for partitioning eddy covariance flux measurements.'
-  license_family: PUBLICDOMAIN
+  license_family: PUBLIC-DOMAIN
+  license_file: ''
+  summary: Module for partitioning eddy covariance flux measurements.
+  description: 'Python 3 module implementing the Scanlon and Sahu (2008) procedure for partitioning eddy covariance measurements of water vapor and carbon dioxide fluxes into stomatal (transpiration, photosynthesis)
+    and nonstomatal (evaporation, respiration) components.
 
-# See
-# http://docs.continuum.io/conda/build.html for
-# more information about meta.yaml
+
+
+    '
+  doc_url: ''
+  dev_url: ''
+
+extra:
+  recipe-maintainers: ''

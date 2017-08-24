@@ -1,7 +1,7 @@
 {% set name = "fluxpart" %}
-{% set version = "0.1.0b1" %}
+{% set version = "0.1.0b2" %}
 {% set hash_type = "sha256" %}
-{% set hash_value = "c96b52434970c70c7df9c52e2d3acf29afaeea3afafaaf1c378ed0cc2a5547f0" %}
+{% set hash_value = "0ccddf47d80846f2e7209fb5d52b5b974d0c8c3655086a27c21539d8d30de4c3" %}
 
 package:
   name: '{{ name|lower }}'

@@ -282,7 +282,7 @@ class Result(namedtuple('Result',
 class WUE(namedtuple('WUE',
                      'wue inter_h2o inter_co2 ambient_h2o ambient_co2 vpd '
                      'ci_mod ci_mod_param leaf_temper ppath meas_ht '
-                     'canopy_ht')):
+                     'canopy_ht diff_ratio')):
     """Summary of leaf-level water use efficiency calculation.
 
     Attributes
@@ -338,5 +338,6 @@ class WUE(namedtuple('WUE',
                 '    leaf_temper = {:.4} C,\n'
                 '    ppath = {},\n'
                 '    meas_ht = {} m,\n'
-                '    canopy_ht = {} m)'
+                '    canopy_ht = {} m,\n'
+                '    diff_ratio = {})'
                 ''.format(*dum))

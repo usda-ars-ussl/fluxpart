@@ -1,13 +1,13 @@
 >>> print(out['fluxes'])
 Fluxes(
     Fq = 0.1524 g/m^2/s,           Fc = -0.5479 mg/m^2/s,
-    Fqt = 0.1336 g/m^2/s,          Fcp = -1.18 mg/m^2/s,
-    Fqe = 0.01876 g/m^2/s,         Fcr = 0.6322 mg/m^2/s,
+    Fqt = 0.1369 g/m^2/s,          Fcp = -1.079 mg/m^2/s,
+    Fqe = 0.01549 g/m^2/s,         Fcr = 0.5315 mg/m^2/s,
 
     Fq_mol = 8.46 mmol/m^2/s,      Fc_mol = -12.45 umol/m^2/s,
-    Fqt_mol = 7.418 mmol/m^2/s,    Fcp_mol = -26.81 umol/m^2/s,
-    Fqe_mol = 1.041 mmol/m^2/s,    Fcr_mol = 14.36 umol/m^2/s,
+    Fqt_mol = 7.6 mmol/m^2/s,      Fcp_mol = -24.53 umol/m^2/s,
+    Fqe_mol = 0.86 mmol/m^2/s,     Fcr_mol = 12.08 umol/m^2/s,
 
     LE  = 370.9 W/m^2,
-    LEt = 325.2 W/m^2,
-    LEe = 45.66 W/m^2)
+    LEt = 333.2 W/m^2,
+    LEe = 37.7 W/m^2)

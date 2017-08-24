@@ -15,7 +15,7 @@ def test_flux_partition():
     """
 
     wue_data = {'meas_ht': 7.11, 'canopy_ht': 4.42, 'ppath': 'C3',
-                'ci_mod': 'const_ppm'}
+                'ci_mod': 'const_ppm', 'diff_ratio': 1/0.7}
 
     # soln exists for this data without any wavelet filtering
     fname = os.path.join(TESTDIR,

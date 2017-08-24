@@ -31,7 +31,7 @@ def sat_vapor_press(t_kelvin):
 
 def water_use_efficiency(hfs, meas_ht, canopy_ht, ppath, ci_mod,
                          ci_mod_param=None, leaf_temper=None,
-                         leaf_temper_corr=0):
+                         leaf_temper_corr=0, diff_ratio=1.6):
 
     """Estimate leaf-level water use efficiency.
 
@@ -70,10 +70,13 @@ def water_use_efficiency(hfs, meas_ht, canopy_ht, ppath, ci_mod,
         `hfs`.
     leaf_temper_corr : float, optional
         Optional adjustment to leaf temperature. The temperature used to
-        calculate intercelluat vapor and CO2 concentrations is
+        calculate intercelluar vapor and CO2 concentrations is
         leaf_T + `leaf_temp_corr`, where leaf_T is `leaf_temper` if
         provided, and the air temperature in `hfs` otherwise. Default is
         `leaf_temper_corr` = 0.
+    diff_ratio: float, optional
+        Ratio of molecular diffusivities for water vapor and CO2.
+        Default is `diff_ratio` = 1.6.
 
     Returns
     -------
@@ -84,14 +87,19 @@ def water_use_efficiency(hfs, meas_ht, canopy_ht, ppath, ci_mod,
     -----
     Leaf-level water use efficiency is estimated as [CN98]_ (pg. 238)::
 
-        wue = 0.7 * (ca - ci) / (qa - qi)
+        wue = (1 / DR) * (ca - ci) / (qa - qi)
 
     where::
 
+        DR = `diff_ratio`
         ca, ci = ambient and intercellular CO2 concentration, resp.
-        qa, qi = ambient and intercellular vapor concentration, resp.
+        qa, qi = ambient and intercellular H2O concentration, resp.
 
-    ca, qa, and qi are caclulated as discussed by [SS08]_.
+    ca and qa are estimated from above-canopy tower measurements by
+    extrapolating a logarithmic mean profile with stability corrections
+    to the zero-plane displacement height [SS08]_.
+
+    qi corresponds to 100 percent relative humidity at `leaf_temper`.
 
     To estimate ci, the following models are available:
 
@@ -195,7 +203,8 @@ def water_use_efficiency(hfs, meas_ht, canopy_ht, ppath, ci_mod,
         'sqrt': _cica_sqrt(ambient_co2, vpd)}
     inter_co2 = ci_dispatch[ci_mod_name](ci_mod_params)
 
-    wue = 0.7 * (ambient_co2 - inter_co2) / (ambient_h2o - inter_h2o)
+    coef = 1. / diff_ratio
+    wue = coef * (ambient_co2 - inter_co2) / (ambient_h2o - inter_h2o)
 
     if ambient_co2 <= inter_co2:
         mssg = 'WUE estimate, ci={}, ca={}'.format(ambient_co2, inter_co2)
@@ -216,7 +225,8 @@ def water_use_efficiency(hfs, meas_ht, canopy_ht, ppath, ci_mod,
         leaf_temper=leaf_T,
         canopy_ht=canopy_ht,
         ci_mod=ci_mod_name,
-        ci_mod_param=ci_mod_params)
+        ci_mod_param=ci_mod_params,
+        diff_ratio=diff_ratio)
 
 
 def _ci_const_ppm(pressure, temperature, Rco2):

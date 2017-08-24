@@ -14,7 +14,8 @@ DEFAULT_WUE_OPTIONS = {
     'ci_mod': 'const_ratio',
     'ci_mod_param': None,
     'leaf_temper': None,
-    'leaf_temper_corr': 0}
+    'leaf_temper_corr': 0,
+    'diff_ratio': 1.6}
 
 DEFAULT_HFD_OPTIONS = {
     'cols': (1, 2, 3, 4, 5, 6, 7),
@@ -37,7 +38,7 @@ NULL_RESULT = {
     'result': Result(*([""] * 5)),
     'fluxes': Fluxes(*np.full(15, np.nan)),
     'hfsummary': HFSummary(*np.full(18, np.nan)),
-    'wue': WUE(*np.full(12, np.nan)),
+    'wue': WUE(*np.full(13, np.nan)),
     'rootsoln': RootSoln(*np.full(6, np.nan)),
     'qcdata': QCData(*np.full(6, np.nan))}
 
@@ -284,7 +285,7 @@ def flux_partition(fname, meas_wue=None, hfd_options=None, wue_options=None,
 
     # get or calculate water use efficiency
     if meas_wue:
-        leaf_wue = WUE(float(meas_wue), *np.full(11, np.nan))
+        leaf_wue = WUE(float(meas_wue), *np.full(12, np.nan))
     else:
         try:
             leaf_wue = wue.water_use_efficiency(hfsum, **wue_options)

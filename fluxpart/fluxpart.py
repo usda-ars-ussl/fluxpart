@@ -2,6 +2,7 @@ from math import exp
 import pkg_resources
 import numpy as np
 
+import fluxpart
 import fluxpart.partition as fp
 import fluxpart.wue as wue
 import fluxpart.util as util
@@ -31,7 +32,7 @@ DEFAULT_HFD_OPTIONS = {
 DEFAULT_PART_OPTIONS = {
     'adjusting_fluxes': True}
 
-VERSION = pkg_resources.require("fluxpart")[0].version
+VERSION = fluxpart.__version__
 
 NULL_RESULT = {
     'label': "",

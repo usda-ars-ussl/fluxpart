@@ -1,8 +1,11 @@
 import os
 from setuptools import setup
 
+HERE = os.path.abspath(os.path.dirname(__file__))
 
-VERSION = '0.1.0-beta-2'
+about = {}
+with open(os.path.join(HERE, "fluxpart", "__version__.py")) as f:
+    exec(f.read(), about)
 
 LONG = ("Python 3 module implementing the Scanlon and Sahu (2008) procedure "
         "for partitioning eddy covariance measurements of water vapor and "
@@ -13,7 +16,7 @@ SHORT = ("Module for partitioning eddy covariance flux measurements.")
 
 setup(
     name='fluxpart',
-    version=VERSION,
+    version=about['__version__'],
     description=SHORT,
     long_description=LONG,
     url='https://github.com/usda-ars-ussl/fluxpart',

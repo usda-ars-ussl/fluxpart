@@ -1,3 +1,2 @@
+from .__version__ import __version__
 from fluxpart.fluxpart import flux_partition
-
-__version__ = '0.1.0-beta-2'

@@ -1,23 +1,24 @@
 {% set name = "fluxpart" %}
-{% set version = "0.1.0b2" %}
+{% set version = "0.1.0" %}
+{% set file_ext = "tar.gz" %}
 {% set hash_type = "sha256" %}
-{% set hash_value = "0ccddf47d80846f2e7209fb5d52b5b974d0c8c3655086a27c21539d8d30de4c3" %}
+{% set hash_value = "e16efaf85b76f3e0f9452e71dadc6542bee519d9dd4c5182a317e0f123583225" %}
 
 package:
   name: '{{ name|lower }}'
   version: '{{ version }}'
 
 source:
-  fn: '{{ name }}-{{ version }}.tar.gz'
-  url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.tar.gz
+  fn: '{{ name }}-{{ version }}.{{ file_ext }}'
+  url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.{{ file_ext }}
   '{{ hash_type }}': '{{ hash_value }}'
 
 build:
   number: 0
-  script: python setup.py install  --single-version-externally-managed --record=record.txt
+  script: python setup.py install --single-version-externally-managed --record=record.txt
 
 requirements:
-  build:
+  host:
     - python
     - setuptools
     - numpy

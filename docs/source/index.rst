@@ -12,4 +12,4 @@ Fluxpart
    tutorial
    examples/index
    reference
-   literature
+   works_cited

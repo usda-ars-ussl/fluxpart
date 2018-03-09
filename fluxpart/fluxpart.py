@@ -195,6 +195,10 @@ def flux_partition(fname, meas_wue=None, hfd_options=None, wue_options=None,
     wue_options['leaf_temper_corr'] : float
         Offset adjustment applied to canopy temperature (K).
         See: :func:`~fluxpart.wue.water_use_efficiency`.
+    wue_options['diff_ratio']: float, optional
+        Ratio of molecular diffusivities for water vapor and CO2.
+        Default is `diff_ratio` = 1.6.
+        See: :func:`~fluxpart.wue.water_use_efficiency`.
     part_options['adjusting_fluxes'] : bool
         If True (default), the final partitioned fluxes are adjusted
         proportionally such that sum of the partitioned fluxes match

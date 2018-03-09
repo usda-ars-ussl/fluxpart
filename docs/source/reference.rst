@@ -39,6 +39,13 @@ fluxpart.partition
     :members:
     :undoc-members:
 
+fluxpart.plots
+--------------
+
+.. automodule:: fluxpart.plots
+    :members:
+    :undoc-members:
+
 fluxpart.util
 -------------
 

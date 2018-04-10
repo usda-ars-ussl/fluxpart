@@ -42,3 +42,4 @@ docs/source/_background/
 # dotenv
 .env
 .vscode
+tags

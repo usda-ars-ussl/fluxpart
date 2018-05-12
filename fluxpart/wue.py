@@ -1,21 +1,26 @@
 from math import log, exp, sqrt
 
-from fluxpart.constants import GRAVITY, VON_KARMAN
-from fluxpart.constants import MOLECULAR_WEIGHT as MW
-from fluxpart.constants import SPECIFIC_GAS_CONSTANT as Rgas
-from fluxpart.containers import WUE
+from .constants import GRAVITY, VON_KARMAN
+from .constants import MOLECULAR_WEIGHT as MW
+from .constants import SPECIFIC_GAS_CONSTANT as Rgas
+from .containers import WUE
 
 
 # Defalut parameter values intercellular CO2 (ci) models
-CI_DEFAULT_PARAMS = {
-    'C3': {'const_ppm': 280.,    # ppm
-           'const_ratio': 0.7,
-           'linear': (1, 1.6e-4),
-           'sqrt': 22e-9},       # kg-co2 / m^3 / Pa
+_C3_DEFAULTS = dict(
+    const_ppm=280.,       # ppm
+    const_ratio=0.7,
+    linear=(1, 1.6e-4),
+    sqrt=22e-9,           # kg-co2 / m^3 / Pa
+    )
 
-    'C4': {'const_ppm': 130.,
-           'const_ratio': 0.44,
-           'linear': (1, 2.7e-4)}}
+_C4_DEFAULTS = dict(
+   const_ppm=130.,
+   const_ratio=0.44,
+   linear=(1, 2.7e-4),
+   )
+
+CI_DEFAULT_PARAMS = dict(C3=_C3_DEFAULTS, C4=_C4_DEFAULTS)
 
 
 class Error(Exception):
@@ -140,7 +145,6 @@ def water_use_efficiency(hfs, meas_ht, canopy_ht, ppath, ci_mod,
         plants.
 
     """
-
     if canopy_ht > meas_ht:
         raise Error('canopy_ht is less than meas_ht')
 
@@ -226,7 +230,8 @@ def water_use_efficiency(hfs, meas_ht, canopy_ht, ppath, ci_mod,
         canopy_ht=canopy_ht,
         ci_mod=ci_mod_name,
         ci_mod_param=ci_mod_params,
-        diff_ratio=diff_ratio)
+        diff_ratio=diff_ratio,
+        )
 
 
 def _ci_const_ppm(pressure, temperature, Rco2):

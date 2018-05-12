@@ -4,7 +4,7 @@ from itertools import permutations
 import numpy as np
 import pywt
 
-from fluxpart.constants import MOLECULAR_WEIGHT as MW    # kg/mol
+from .constants import MOLECULAR_WEIGHT as MW    # kg/mol
 
 
 def stats2(sarray, names=None):

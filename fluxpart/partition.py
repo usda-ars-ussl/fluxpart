@@ -2,7 +2,7 @@ import math
 from types import SimpleNamespace
 import numpy as np
 import fluxpart.util as util
-from fluxpart.containers import RootSoln, FluxComponents, QCData
+from .containers import RootSoln, FluxComponents, QCData
 
 
 def partition_from_wqc_series(w, q, c, wue, adjust_fluxes=True):
@@ -27,11 +27,13 @@ def partition_from_wqc_series(w, q, c, wue, adjust_fluxes=True):
 
     Returns
     -------
-    dict
-        {'valid_partition': bool, 'partmssg': str,
-        'fluxcomps': :class:`~fluxpart.containers.FluxComponents`,
-        'rootsoln': :class:`~fluxpart.containers.RootSoln`,
-        'qcdata': :class:`~fluxpart.containers.QCData`}
+    dict(
+      valid_partition=bool,
+      partmssg=str,
+      fluxcomps=:class:`~fluxpart.containers.FluxComponents`,
+      rootsoln=:class:`~fluxpart.containers.RootSoln`,
+      qcdata=:class:`~fluxpart.containers.QCData`,
+      )
 
     Notes
     -----
@@ -39,7 +41,6 @@ def partition_from_wqc_series(w, q, c, wue, adjust_fluxes=True):
     correspond to the final iteration attempted.
 
     """
-
     max_decomp_lvl = int(np.log2(w.size))
     wq_tot = np.cov((w, q))[0, 1]
     wc_tot = np.cov((w, c))[0, 1]
@@ -47,7 +48,7 @@ def partition_from_wqc_series(w, q, c, wue, adjust_fluxes=True):
     # The loop progressively filters the data until a physically valid
     # partitioning is found or the loop/filter is exhausted. The first
     # iteration of progressive_lowcut removes only the mean value
-    # (q'=q-<q>, etc.), so the first iteration uses the unfiltered
+    # (q'=q-<q>, etc.), so the first iteration uses the "unfiltered"
     # deviations.
 
     for cnt, lowcut_wqc in enumerate(progressive_lowcut(w, q, c)):
@@ -78,11 +79,14 @@ def partition_from_wqc_series(w, q, c, wue, adjust_fluxes=True):
     if not valid_partition:
         fcomp = FluxComponents(*np.full(6, np.nan))
 
-    return {'valid_partition': valid_partition,
-            'partmssg': partition_mssg,
-            'fluxcomps': fcomp,
-            'rootsoln': rsoln,
-            'qcdata': qcdata}
+    return dict(
+        valid_partition=valid_partition,
+        partmssg=partition_mssg,
+        fluxcomps=fcomp,
+        rootsoln=rsoln,
+        qcdata=qcdata,
+        )
+
 
 
 def partition_from_qc_averages(qcdata, wue):
@@ -103,7 +107,6 @@ def partition_from_qc_averages(qcdata, wue):
         :class:`~fluxpart.containers.FluxComponents`
 
     """
-
     rsoln = findroot(qcdata, wue)
     if rsoln.validroot:
         fluxes = flux_components(rsoln.var_cp, rsoln.corr_cp_cr, qcdata, wue,
@@ -129,8 +132,6 @@ def findroot(qcdata, wue):
         :class:`~fluxpart.containers.RootSoln`
 
     """
-
-
     # scale dimensional parameters so they have comparable magnitudes
     # H20: kg - > g
     # CO2: kg - > mg
@@ -204,7 +205,8 @@ def findroot(qcdata, wue):
         sig_cr=sig_cr * 1e-6,
         co2soln_id=co2soln_id,
         validroot=valid_root,
-        validmssg=valid_root_mssg)
+        validmssg=valid_root_mssg,
+        )
 
 
 def flux_ratio(var_cp, corr_cp_cr, qcdata, ftype, farg):
@@ -239,7 +241,6 @@ def flux_ratio(var_cp, corr_cp_cr, qcdata, ftype, farg):
     which is required/assumed by the physical model in [SS08]_.
 
     """
-
     if ftype == 'co2' or ftype == 'CO2':
         sign = 1 if farg == 1 else -1
         num = qcdata.var_c
@@ -264,8 +265,14 @@ def flux_components(var_cp, corr_cp_cr, qcdata, wue, co2soln_id):
     wcr = qcdata.wc - wcp
     wqt = wcp / wue
     wqe = qcdata.wq - wqt
-    return FluxComponents(wq=qcdata.wq, wqt=wqt, wqe=wqe,
-                          wc=qcdata.wc, wcp=wcp, wcr=wcr)
+    return FluxComponents(
+        wq=qcdata.wq,
+        wqt=wqt,
+        wqe=wqe,
+        wc=qcdata.wc,
+        wcp=wcp,
+        wcr=wcr,
+        )
 
 
 def residual_func(x, qcdata, wue, co2soln_id):
@@ -357,14 +364,19 @@ def adjust_partitioned_fluxes(fc, wue, wq_tot, wc_tot):
         :class:`~fluxpart.containers.FluxComponents`
 
     """
-
     wq_diff = wq_tot - (fc.wqe + fc.wqt)
     wqe = fc.wqe + wq_diff * (fc.wqe / (fc.wqt + fc.wqe))
     wqt = wq_tot - wqe
     wcp = wue * wqt
     wcr = wc_tot - wcp
-    return FluxComponents(wq=wq_tot, wqt=wqt, wqe=wqe,
-                          wc=wc_tot, wcp=wcp, wcr=wcr)
+    return FluxComponents(
+        wq=wq_tot,
+        wqt=wqt,
+        wqe=wqe,
+        wc=wc_tot,
+        wcp=wcp,
+        wcr=wcr,
+        )
 
 
 def progressive_lowcut(wind, vapor, co2):
@@ -392,7 +404,6 @@ def progressive_lowcut(wind, vapor, co2):
     (power of 2) before the filter is applied.
 
     """
-
     max_dyadic_len = 2**int(np.log2(np.asarray(co2).shape[0]))
     trunc_w = np.asarray(wind)[:max_dyadic_len]
     trunc_q = np.asarray(vapor)[:max_dyadic_len]
@@ -402,7 +413,3 @@ def progressive_lowcut(wind, vapor, co2):
     lowcut_c = util.progressive_lowcut_series(trunc_c)
     for lowcut_series in zip(lowcut_w, lowcut_q, lowcut_c):
         yield lowcut_series
-
-
-if __name__ == '__main__':
-    pass

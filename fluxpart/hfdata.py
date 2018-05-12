@@ -4,17 +4,17 @@ import math
 import numpy as np
 
 import fluxpart.util as util
-from fluxpart.containers import HFSummary
-from fluxpart.constants import MOLECULAR_WEIGHT as MW
-from fluxpart.constants import SPECIFIC_HEAT_CAPACITY as CP
-from fluxpart.constants import SPECIFIC_GAS_CONSTANT as GC
+from .containers import HFSummary
+from .constants import MOLECULAR_WEIGHT as MW
+from .constants import SPECIFIC_HEAT_CAPACITY as CP
+from .constants import SPECIFIC_GAS_CONSTANT as GC
 
 
 class Error(Exception):
     pass
 
 
-class HFData:
+class HFData(object):
     """High-frequency eddy covariance data.
 
     The following notation is used in variable naming and documentation
@@ -84,8 +84,8 @@ class HFData:
     data_table : structured array
         Table of high frequency data series with columns 'u', 'v', 'w',
         'q', 'c', 'T', and 'P'
-    """
 
+    """
     def __init__(self, fname, cols, converters=None, flags=None, bounds=None,
                  rd_tol=0.5, ad_tol=1024, **kwargs):
         """Read high frequency eddy covarince data, apply some QA/QC."""
@@ -239,8 +239,5 @@ class HFData:
             rho_dryair=rho_dryair,
             rho_totair=rho_totair,
             cov_w_T=hfs.cov_w_T,
-            N=self.data_table.shape[0])
-
-
-if __name__ == "__main__":
-    pass
+            N=self.data_table.shape[0],
+            )

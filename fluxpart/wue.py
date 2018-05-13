@@ -4,6 +4,7 @@ from .constants import GRAVITY, VON_KARMAN
 from .constants import MOLECULAR_WEIGHT as MW
 from .constants import SPECIFIC_GAS_CONSTANT as Rgas
 from .containers import WUE
+from .util import sat_vapor_press, vapor_press_deficit
 
 
 # Defalut parameter values intercellular CO2 (ci) models
@@ -25,13 +26,6 @@ CI_DEFAULT_PARAMS = dict(C3=_C3_DEFAULTS, C4=_C4_DEFAULTS)
 
 class Error(Exception):
     pass
-
-
-def sat_vapor_press(t_kelvin):
-    """Return saturation vapor pressure, e_sat."""
-    tr = 1 - 373.15 / t_kelvin
-    return 101325. * (
-        exp(13.3185 * tr - 1.9760 * tr**2 - 0.6445 * tr**3 - 0.1299 * tr**4))
 
 
 def water_use_efficiency(hfs, meas_ht, canopy_ht, ppath, ci_mod,
@@ -176,9 +170,8 @@ def water_use_efficiency(hfs, meas_ht, canopy_ht, ppath, ci_mod,
     ambient_h2o = (hfs.rho_vapor + hfs.cov_w_q * arg)
     ambient_co2 = (hfs.rho_co2 + hfs.cov_w_c * arg)
 
-    # Ambient vapor pressure deficit `vpd`
-    esat = sat_vapor_press(hfs.T)
-    vpd = esat - hfs.rho_vapor * Rgas.vapor * hfs.T
+    # Ambient vapor pressure deficit
+    vpd = vapor_press_deficit(hfs.rho_vapor, hfs.T)
     if vpd < 0:
         raise Error('Negative vapor pressure deficit {}'.format(vpd))
 

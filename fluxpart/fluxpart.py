@@ -5,11 +5,21 @@ import numpy as np
 import fluxpart
 import fluxpart.partition as fp
 import fluxpart.wue as wue
-import fluxpart.util as util
 import fluxpart.hfdata as hfdata
-from .containers import Fluxes, WUE, Result, RootSoln, HFSummary
-from .containers import QCData
-from .constants import SPECIFIC_GAS_CONSTANT as Rgas
+from .containers import (
+    Fluxes,
+    WUE,
+    Result,
+    RootSoln,
+    HFSummary,
+    QCData,
+    )
+from .util import (
+    qflux_mass_to_heat,
+    qflux_mass_to_mol,
+    cflux_mass_to_mol,
+    vapor_press_deficit,
+    )
 
 DEFAULT_WUE_OPTIONS = dict(
     ci_mod='const_ratio',
@@ -271,10 +281,7 @@ def flux_partition(
             )
 
     # exit if atmospheric vapor pressure deficit is <= 0
-    Tr = 1 - 373.15 / hfsum.T
-    esat = 101325. * (
-        exp(13.3185 * Tr - 1.9760 * Tr**2 - 0.6445 * Tr**3 - 0.1299 * Tr**4))
-    vpd = esat - hfsum.rho_vapor * Rgas.vapor * hfsum.T
+    vpd = vapor_press_deficit(hfsum.rho_vapor, hfsum.T)
     if vpd <= 0:
         mssg = 'Vapor pressure deficit {}'.format(vpd)
         result = Result(version=VERSION, dataread=True, attempt_partition=False,
@@ -329,15 +336,15 @@ def flux_partition(
     if pout['valid_partition']:
         fluxes = Fluxes(
             *pout['fluxcomps'],
-            LE=util.qflux_mass_to_heat(pout['fluxcomps'].wq, hfsum.T),
-            LEt=util.qflux_mass_to_heat(pout['fluxcomps'].wqt, hfsum.T),
-            LEe=util.qflux_mass_to_heat(pout['fluxcomps'].wqe, hfsum.T),
-            Fq_mol=util.qflux_mass_to_mol(pout['fluxcomps'].wq),
-            Fqt_mol=util.qflux_mass_to_mol(pout['fluxcomps'].wqt),
-            Fqe_mol=util.qflux_mass_to_mol(pout['fluxcomps'].wqe),
-            Fc_mol=util.cflux_mass_to_mol(pout['fluxcomps'].wc),
-            Fcp_mol=util.cflux_mass_to_mol(pout['fluxcomps'].wcp),
-            Fcr_mol=util.cflux_mass_to_mol(pout['fluxcomps'].wcr),
+            LE=qflux_mass_to_heat(pout['fluxcomps'].wq, hfsum.T),
+            LEt=qflux_mass_to_heat(pout['fluxcomps'].wqt, hfsum.T),
+            LEe=qflux_mass_to_heat(pout['fluxcomps'].wqe, hfsum.T),
+            Fq_mol=qflux_mass_to_mol(pout['fluxcomps'].wq),
+            Fqt_mol=qflux_mass_to_mol(pout['fluxcomps'].wqt),
+            Fqe_mol=qflux_mass_to_mol(pout['fluxcomps'].wqe),
+            Fc_mol=cflux_mass_to_mol(pout['fluxcomps'].wc),
+            Fcp_mol=cflux_mass_to_mol(pout['fluxcomps'].wcp),
+            Fcr_mol=cflux_mass_to_mol(pout['fluxcomps'].wcr),
             )
     else:
         fluxes = Fluxes(*np.full(15, np.nan))

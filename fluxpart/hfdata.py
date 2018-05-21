@@ -1,9 +1,10 @@
 """Data strucure for high-frequency eddy covarinace time series."""
 
+import attr
 import math
 import numpy as np
 
-import fluxpart.util as util
+from . import util
 from .containers import HFSummary
 from .constants import MOLECULAR_WEIGHT as MW
 from .constants import SPECIFIC_HEAT_CAPACITY as CP
@@ -14,6 +15,7 @@ class Error(Exception):
     pass
 
 
+@attr.s
 class HFData(object):
     """High-frequency eddy covariance data.
 
@@ -86,15 +88,26 @@ class HFData(object):
         'q', 'c', 'T', and 'P'
 
     """
-    def __init__(self, fname, cols, converters=None, flags=None, bounds=None,
-                 rd_tol=0.5, ad_tol=1024, **kwargs):
-        """Read high frequency eddy covarince data, apply some QA/QC."""
+    fname = attr.ib(default=None)
+    cols = attr.ib(default=(1, 2, 3, 4, 5, 6, 7))
+    converters = attr.ib(default=None)
+    bounds = attr.ib(default=None)
+    flags = attr.ib(default=None)
+    rd_tol = attr.ib(default=0.4)
+    ad_tol = attr.ib(default = 1024)
+    read_kws = attr.ib(default = None)
 
-        var_names = ['u', 'v', 'w', 'q', 'c', 'T', 'P']
-        self.names = var_names.copy()
-        all_names = var_names.copy()
-        self._qc_already_corrected = False
+    var_names = attr.ib(init=False, default=['u', 'v', 'w', 'q', 'c', 'T', 'P'])
+    names = attr.ib(init=False, default=['u', 'v', 'w', 'q', 'c', 'T', 'P'])
+    flag_dict = attr.ib(init=False, default=None)
+    _qc_already_corrected = attr.ib(init=False, default=False)
+
+    def read(self, cols, index_col=None, converters=None, flags=None, **kwargs):
+        """Read high frequency eddy covariance data into a dataframe."""
+        names = self.var_names.copy()
+        all_names = self.var_names.copy()
         usecols = np.array(cols, dtype=int).reshape(7,)
+        self.flags = flags
 
         # make sure no duplicate kws
         disallowed_kws = ('usecols', 'names', 'dtype', 'converters',
@@ -102,7 +115,7 @@ class HFData(object):
         for kw in disallowed_kws:
             delete_if_present = kwargs.pop(kw, False)
 
-        var_dtype = list(zip(var_names, 7 * (float, )))
+        var_dtype = list(zip(self.var_names, 7 * (float, )))
         all_dtype = var_dtype.copy()
 
         # add flag columns to data table
@@ -118,14 +131,30 @@ class HFData(object):
             all_names += flag_names
 
             # for later convenience
-            flag_dict = dict(zip(flag_names, goodvals))
+            self.flag_dict = dict(zip(flag_names, goodvals))
 
         try:
-            data = np.genfromtxt(fname, usecols=usecols, dtype=all_dtype,
-                                 names=all_names, converters=converters,
-                                 **kwargs)
+            self.data_table = (
+                np.genfromtxt(
+                    self.fname,
+                    usecols=usecols,
+                    dtype=all_dtype,
+                    names=all_names,
+                    converters=converters,
+                    **kwargs
+                )
+            )
         except TypeError as err:
             raise Error(err.args[0])
+
+
+    def data_check(self, bounds=None, rd_tol=0.5, ad_tol=1024, **kwargs):
+        """Apply some data QC."""
+
+        data = self.data_table
+        flag_dict = self.flag_dict
+        var_names = self.var_names
+        #flag_names = flagarray.flag_names
 
         # 1D bool mask is True if any `data` field is missing (=nan)
         mask = np.isnan(data[var_names].view(float).reshape(-1, 7)).any(axis=1)
@@ -136,8 +165,8 @@ class HFData(object):
             dbounds.update(bounds)
         for var, (low, high) in dbounds.items():
             mask[(data[var] <= low) | (data[var] >= high)] = True
-        if flags:
-            for flgname, goodval in flag_dict.items():
+        if self.flags:
+            for flgname, goodval in self.flag_dict.items():
                 mask[data[flgname] != goodval] = True
 
         # Find longest span of valid (unmasked) data
@@ -160,6 +189,42 @@ class HFData(object):
 
         self.data_table = data[var_names][max_slice].copy()
         return
+
+        if 0:
+            all_names = var_names.copy()
+        if 0:
+            usecols = np.array(cols, dtype=int).reshape(7,)
+
+            # make sure no duplicate kws
+            disallowed_kws = ('usecols', 'names', 'dtype', 'converters',
+                              'filling_values')
+            for kw in disallowed_kws:
+                delete_if_present = kwargs.pop(kw, False)
+
+            var_dtype = list(zip(var_names, 7 * (float, )))
+            all_dtype = var_dtype.copy()
+
+            # add flag columns to data table
+            if flags:
+                if isinstance(flags, list):
+                    fcols, goodvals = list(zip(*flags))
+                else:
+                    fcols, goodvals = [flags[0], ], [flags[1], ]
+                flag_names = list('flg' + str(i) for i in range(len(fcols)))
+
+                usecols = np.append(usecols, np.array(fcols, dtype=int))
+                all_dtype += list(zip(flag_names, [type(v) for v in goodvals]))
+                all_names += flag_names
+
+                # for later convenience
+                flag_dict = dict(zip(flag_names, goodvals))
+
+            try:
+                data = np.genfromtxt(fname, usecols=usecols, dtype=all_dtype,
+                                     names=all_names, converters=converters,
+                                     **kwargs)
+            except TypeError as err:
+                raise Error(err.args[0])
 
     def __getitem__(self, name):
         """Column-wise get without specifying data_table attribute"""

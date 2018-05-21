@@ -12,8 +12,8 @@ def test_hfdata_from_txt():
     fname = os.path.join(TESTDIR,
                          'data/TOA5_6843.ts_Above_2012_06_07_1300.dat')
 
-    data = HFData(
-        fname,
+    data = HFData(fname)
+    data.read(
         cols,
         converters={
             'T': _converter_func(1, 273.15),
@@ -63,8 +63,8 @@ def test_hfdata_from_txt():
         'asdf,10, 2,3,4,5,6,7,9,0\n'
         'asdf,11,-2,3,4,5,6,7,9,0\n')
 
-    toy = HFData(
-        io.BytesIO(toy_data.encode()),
+    toy = HFData(io.BytesIO(toy_data.encode()))
+    toy.read(
         cols=(1, 2, 3, 7, 6, 4, 5),
         comments='#',
         skip_header=1,
@@ -72,9 +72,12 @@ def test_hfdata_from_txt():
         converters={'q': _converter_func(10., 0)},
         flags=(9, 0),
         delimiter=",",
+        )
+    toy.data_check(
         rd_tol=0.1,
         ad_tol=2,
-        bounds={'v': (0, np.inf)})
+        bounds={'v': (0, np.inf)},
+        )
 
     npt.assert_allclose(toy.data_table['u'], [4, 5, 6])
     npt.assert_allclose(toy.data_table['v'], 3 * [2, ])

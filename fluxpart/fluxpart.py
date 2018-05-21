@@ -248,11 +248,15 @@ def flux_partition(
 
     correcting_external = hfd_options.pop('correcting_external')
     ustar_tol = hfd_options.pop('ustar_tol')
+    bounds = hfd_options.pop('bounds')
+    rd_tol = hfd_options.pop('rd_tol')
+    ad_tol = hfd_options.pop('ad_tol')
 
     # read high frequency data
     try:
-        hfdat = hfdata.HFData(
-                fname, cols=usecols, converters=converters, **hfd_options)
+        hfdat = hfdata.HFData(fname)
+        hfdat.read(cols=usecols, converters=converters, **hfd_options)
+        hfdat.data_check(bounds, rd_tol, ad_tol)
     except hfdata.Error as err:
         return FluxpartResult(
                     label=label,

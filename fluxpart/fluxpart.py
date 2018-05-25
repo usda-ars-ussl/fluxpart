@@ -8,8 +8,10 @@ from .partition import fvspart_progressive
 from .util import vapor_press_deficit
 from .containers import (
     AllFluxes,
-    FluxpartResult,
+    FVSPResult,
     HFSummary,
+    RootSoln,
+    WQCData,
     WUE,
 )
 
@@ -310,6 +312,47 @@ def flux_partition(
         hfsummary=hfsum,
         wue=leaf_wue,
         )
+
+
+@attr.s
+class FluxpartResult(object):
+    """Fluxpart result.
+
+    Parameters
+    ----------
+    version : str
+        Fluxpart version
+    dataread, attempt_partition, valid_partition : bool
+        Indicates success or failure in reading high frequency data,
+        attempting and obtaining a valid partioning solution.
+    mssg : str
+        Possibly informative message if `dataread` or `valid_partition`
+        are False
+
+    TODO
+
+    """
+    version = attr.ib()
+    dataread = attr.ib()
+    attempt_partition = attr.ib()
+    valid_partition = attr.ib()
+    mssg = attr.ib()
+    fvsp_result = attr.ib(
+            default=FVSPResult(WQCData(), RootSoln(), AllFluxes()))
+    hfsummary = attr.ib(default=HFSummary())
+    wue = attr.ib(default=WUE())
+    label = attr.ib(default=None)
+
+    # TODO
+    # def __str__(self):
+    #     return (
+    #         'Outcome(\n'
+    #         + f'    version = {self.version},\n'
+    #         + f'    dataread = {self.dataread},\n'
+    #         + f'    attempt_partition = {self.attempt_partition},\n'
+    #         + f'    valid_partition = {self.valid_partition},\n'
+    #         + f'    mssg = {self.mssg})'
+    #         )
 
 
 def _str_converter_func(slope, intercept):

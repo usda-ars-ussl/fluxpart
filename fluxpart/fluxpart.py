@@ -161,12 +161,13 @@ def flux_partition(
         bounds. Default is
         ``bounds = {'c': (0, np.inf), 'q': (0, np.inf)}`` such that data
         records are rejected if c or q data are not positive values.
-    hfd_options['flags'] : 2-tuple or list of 2-tuples
+    hfd_options['flags'] : dict
         Specifies that one or more columns in `fname` are used to flag
-        bad data records. Each tuple is of the form (col, badval),
-        where col is an int specifying the column number containing the
-        flag (0-based indexing), and badval is the value of the flag
-        that indicates a bad data record. Default is None.
+        bad data records. Dict keys are flag names (can be an arbitrary,
+        unique identifier); values are 2-tuples of the form
+        (col, badval), where col is an int specifying the column number
+        containing the flag (0-based indexing), and badval is the value
+        of the flag that indicates a bad data record. Default is None.
     hfd_options['rd_tol'] : float
         Relative tolerance for rejecting the datafile. Default is
         'hfd_options['rd_tol']` = 0.4. See
@@ -186,15 +187,16 @@ def flux_partition(
         temperature and vapor density according to [WPL80]_ and [DK07]_.
     hfd_options[ other keys ]
         All other key:value pairs in `hfd_options` are passed as keyword
-        arguments to numpy.genfromtxt_ (where the file is read). These
+        arguments to pandas.read_csv_ (where the file is read). These
         keywords are often required to specify the details of the
         formatting of the delimited datafile.  Among the most
         commonly required are: 'delimiter', a str, int, or sequence
         that is used to separate values or define column widths (default
         is that any consecutive whitespace delimits values); and
-        'skip_header', an int that specifies the number of lines to skip
-        at the beginning of the file. See numpy.genfromtxt_ for a full
-        description of available format options.
+        'skiprows', an int, list of ints, or callable that specifies
+        rows to skip (e.g. header rows at the beginning of the file. See
+        pandas.read_csv_ for a full description of available format
+        options.
     wue_options['canopy_ht'] : float
         Vegetation canopy height (m).
     wue_options['meas_ht'] : float
@@ -224,8 +226,8 @@ def flux_partition(
         exactly the total fluxes indicated in the original data.
 
 
-    .. _numpy.genfromtxt:
-        http://docs.scipy.org/doc/numpy/reference/generated/numpy.genfromtxt.html
+    .. _pandas.read_csv:
+        https://pandas.pydata.org/pandas-docs/stable/generated/pandas.read_csv.html
 
     """
     #null_result = NULL_RESULT
@@ -239,12 +241,12 @@ def flux_partition(
     unit_convert = hfd_options.pop('unit_convert')
     if unit_convert:
         converters = {
-            k: _converter_func(float(v), 0.) for k, v in unit_convert.items()}
+            k: _str_converter_func(float(v), 0.) for k, v in unit_convert.items()}
 
     temper_unit = hfd_options.pop('temper_unit')
     if temper_unit.upper() == 'C' or temper_unit.upper() == 'CELSIUS':
         converters = converters or {}
-        converters['T'] = _converter_func(1., 273.15)
+        converters['T'] = _str_converter_func(1., 273.15)
 
     correcting_external = hfd_options.pop('correcting_external')
     ustar_tol = hfd_options.pop('ustar_tol')
@@ -254,9 +256,9 @@ def flux_partition(
 
     # read high frequency data
     try:
-        hfdat = hfdata.HFData(fname)
-        hfdat.read(cols=usecols, converters=converters, **hfd_options)
-        hfdat.data_check(bounds, rd_tol, ad_tol)
+        hfdat = hfdata.HFData(cols=usecols, converters=converters, **hfd_options)
+        hfdat.read(fname)
+        hfdat.quality_check(bounds, rd_tol, ad_tol)
     except hfdata.Error as err:
         return FluxpartResult(
                     label=label,
@@ -272,7 +274,7 @@ def flux_partition(
     # preliminary data processing and analysis
     hfdat.truncate()
     if correcting_external:
-        hfdat.qc_correct()
+        hfdat.correct_external()
     hfsum = hfdat.summarize()
 
     # abort if friction velocity is too low (lack of turbulence)
@@ -343,13 +345,15 @@ def flux_partition(
 
     # compute partitioned fluxes
     adjust_fluxes = part_options['adjust_fluxes']
-    fvsp = fvspart_progressive(
-            hfdat['w'],
-            hfdat['q'],
-            hfdat['c'],
+    fvsp = (
+        fvspart_progressive(
+            hfdat['w'].values,
+            hfdat['q'].values,
+            hfdat['c'].values,
             leaf_wue.wue,
             adjust_fluxes,
-            )
+        )
+    )
 
     # collect results and return
     outcome = Outcome(
@@ -375,14 +379,19 @@ def flux_partition(
         )
 
 
-def _converter_func(slope, intercept):
-    """Return a function for linear transform of data when reading file.
-    """
+def _str_converter_func(slope, intercept):
+    """Return func for linear transform of data when reading file."""
     def func(stringval):
         try:
-            return slope * float(stringval.strip()) + intercept
+            return slope * float(stringval) + intercept
         except ValueError:
             return np.nan
+    return func
+
+def _converter_func(slope, intercept):
+    """Return a function for linear transform of data."""
+    def func(val):
+        return slope * val + intercept
     return func
 
 

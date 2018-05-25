@@ -1,8 +1,8 @@
-"""Data strucure for high-frequency eddy covarinace time series."""
+"""Data structure for high-frequency eddy covariance time series."""
 
-import attr
 import math
 import numpy as np
+import pandas as pd
 
 from . import util
 from .containers import HFSummary
@@ -15,12 +15,12 @@ class Error(Exception):
     pass
 
 
-@attr.s
 class HFData(object):
     """High-frequency eddy covariance data.
 
-    The following notation is used in variable naming and documentation
-    to represent meteorological quantities (SI units)::
+    The following notation is used in variable naming and
+    documentation to represent meteorological quantities (SI
+    units)::
 
         u, v, w = wind velocities (m/s)
         q = water vapor mass concentration (kg/m^3)
@@ -28,146 +28,199 @@ class HFData(object):
         T = air temperature (K)
         P = total air pressure (Pa)
 
-    Parameters
-    ----------
-    fname : str
-        Name of delimited file containing high-frequency eddy covariance
-        time series data.
-    cols : 7*(int,)
-        7-tuple of integers indicating the column numbers of `fname`
-        that contain series data for (u, v, w, q, c, T, P), in that
-        order. Uses 0-based indexing.
-    converters : dict, optional
-        Dictionary of functions used to convert any non-SI data to SI
-        units.  Dict keys are 'u', 'v', 'w', 'q', 'c', 'T', or 'P', and
-        the funcs take string single argument, e.g.
-        ``converters={'P': lambda s: 1e3 * float(s)}``.
-    bounds : dict, optional
-        Dictionary specifying any prescribed lower and upper bounds for
-        legal data. Dict entries have the form
-        ``varname: (float, float)``, where varname is one of 'u', 'v',
-        'w', 'q', 'c', 'T', or 'P', and the 2-tuple holds values for the
-        lower and upper bounds: ``(lower, upper)``.  Data records are
-        rejected if a variable in the record is outside the prescribed
-        bounds. Default is
-        ``bounds = {'c': (0, np.inf), 'q': (0, np.inf)}`` such that data
-        records are rejected if c or q data are not positive values.
-    flags : 2-tuple or list of 2-tuples, optional
-        Specifies that one or more columns in `fname` are used to flag
-        bad data records. Each tuple is of the form (col, badval),
-        where col is an int specifying the column number containing the
-        flag (0-based indexing), and badval is the value of the flag
-        that indicates a bad data record.
-    rd_tol : float, optional
-        Relative tolerance for rejecting the datafile. Default is
-        `rd_tol` = 0.4.  See `ad_tol` for explanation.
-    ad_tol : int, optional
-        Absolute tolerance for rejecting the datafile. Defaults is
-        `ad_tol` = 1024. If the datafile contains bad records (not
-        readable, out-of-bounds, or flagged data), the partitioning
-        analysis is performed using the longest stretch of consecutive
-        good data records found, unless that stretch is too short,
-        in which case the analysis is aborted. The criteria for
-        judging 'too short' can be specified in both relative and
-        absolute terms: the datafile is rejected if the good stretch
-        is a fraction of the total data that is less than `rd_tol`,
-        and/or is less than `ad_tol` records long.
-    **kwargs
-        Keyword arguments passed to numpy.genfromtxt_ to specify
-        formatting of the delimited datafile. See numpy.genfromtxt_
-        for a full description of available options.
-
-
-    .. _numpy.genfromtxt:
-        http://docs.scipy.org/doc/numpy/reference/generated/numpy.genfromtxt.html
-
-    Attributes
-    ----------
-    data_table : structured array
-        Table of high frequency data series with columns 'u', 'v', 'w',
-        'q', 'c', 'T', and 'P'
-
     """
-    fname = attr.ib(default=None)
-    cols = attr.ib(default=(1, 2, 3, 4, 5, 6, 7))
-    converters = attr.ib(default=None)
-    bounds = attr.ib(default=None)
-    flags = attr.ib(default=None)
-    rd_tol = attr.ib(default=0.4)
-    ad_tol = attr.ib(default = 1024)
-    read_kws = attr.ib(default = None)
+    var_names = ['u', 'v', 'w', 'q', 'c', 'T', 'P']
 
-    var_names = attr.ib(init=False, default=['u', 'v', 'w', 'q', 'c', 'T', 'P'])
-    names = attr.ib(init=False, default=['u', 'v', 'w', 'q', 'c', 'T', 'P'])
-    flag_dict = attr.ib(init=False, default=None)
-    _qc_already_corrected = attr.ib(init=False, default=False)
+    def __init__(
+            self,
+            datasource='csv',
+            cols=(2, 3, 4, 6, 5, 7, 8),
+            time_col=None,
+            converters=None,
+            flags=None,
+            **kwargs):
+        """High-frequency eddy covariance data.
 
-    def read(self, cols, index_col=None, converters=None, flags=None, **kwargs):
-        """Read high frequency eddy covariance data into a dataframe."""
-        names = self.var_names.copy()
-        all_names = self.var_names.copy()
-        usecols = np.array(cols, dtype=int).reshape(7,)
-        self.flags = flags
+        Parameters
+        ----------
+        datasource : {'csv', 'tob1', 'pd.df'}
+            'csv' = delimited text file (default); 'tob1' = Campbell
+            Scientific binary format file; 'pd.df' = pandas dataframe.
+        cols : 7*(int,), optional
+            Column indices for (u, v, w, q, c, T, P) data, in that
+            order. 0-based indexing. Default is (2, 3, 4, 6, 5, 7, 8).
+        time_col : int, optional (TODO)
+            (TODO) Datetime column. Default is None.
+        converters : dict, optional
+            Dictionary of functions used to convert any non-SI data to
+            SI units.  Dict keys are 'u', 'v', 'w', 'q', 'c', 'T', or
+            'P'. With a 'csv' `datasource`, the funcs take a string
+            single argument, e.g.
+            ``converters={'P': lambda s: 1e3 * float(s)}``.
+        flags : 2-tuple or list of 2-tuples, optional
+            Specifies that one or more columns in `fname` are used to
+            flag bad data records. Each tuple is of the form (col,
+            goodval), where col is an int specifying the column number
+            containing the flag (0-based indexing), and goodval is the
+            value of the flag that indicates a good data record.
+        **kwargs
+            With a 'csv' `datasource`, kwargs is passed to
+            pandas.read_csv_. Can be used to indicate additional
+            formatting options. Should *not* include the following keys:
+            `usecols`, `names`, `converters`, `dtype`, `index_col`.
 
-        # make sure no duplicate kws
-        disallowed_kws = ('usecols', 'names', 'dtype', 'converters',
-                          'filling_values')
-        for kw in disallowed_kws:
-            delete_if_present = kwargs.pop(kw, False)
 
-        var_dtype = list(zip(self.var_names, 7 * (float, )))
-        all_dtype = var_dtype.copy()
+        .. _pandas.read_csv:
+            https://pandas.pydata.org/pandas-docs/stable/generated/pandas.read_csv.html
 
-        # add flag columns to data table
-        if flags:
-            if isinstance(flags, list):
-                fcols, goodvals = list(zip(*flags))
-            else:
-                fcols, goodvals = [flags[0], ], [flags[1], ]
-            flag_names = list('flg' + str(i) for i in range(len(fcols)))
+        Attributes
+        ----------
+        dataframe : pandas dataframe
+            Table of high frequency data series with columns 'u', 'v',
+            'w', 'q', 'c', 'T', and 'P'
 
-            usecols = np.append(usecols, np.array(fcols, dtype=int))
-            all_dtype += list(zip(flag_names, [type(v) for v in goodvals]))
-            all_names += flag_names
+        """
+        self._datasource = datasource
+        self._cols = cols
+        self._time_col = time_col
+        self._converters = converters or {}
+        self._flags = flags or {}
+        self._read_kws = kwargs
+        self._already_corrected_external = False
+        self.dataframe = None
 
-            # for later convenience
-            self.flag_dict = dict(zip(flag_names, goodvals))
+    @property
+    def _dtype(self):
+        dtype = dict(zip(HFData.var_names, len(HFData.var_names) * (float, )))
+        dtype.update({k: type(v[1]) for k, v in self._flags.items()})
+        # Avoid pandas Warning about vars being in both converters and dtype
+        for k in self._converters.keys():
+            dtype.pop(k, None)
+        return dtype
 
+    @property
+    def _namecols(self):
+        namecols = dict(zip(HFData.var_names, self._cols))
+        namecols.update({k: v[0] for k, v in self._flags.items()})
+        return namecols
+
+    @property
+    def _names(self):
+        # sorted because pd.read_csv sorts usecols but not names
+        return sorted(self._namecols, key=self._namecols.get)
+
+    @property
+    def _usecols(self):
+        return [self._namecols[k] for k in self._names]
+
+    def __getitem__(self, name):
+        """Column-wise get without specifying dataframe attribute"""
+        return self.dataframe.loc[:, name]
+
+    def __setitem__(self, name, value):
+        """Column-wise set without specifying dataframe attribute"""
+        self.dataframe.loc[:, name] = value
+
+    def read(self, fname, **kwargs):
+        """Read high frequency eddy covariance data into dataframe.
+
+        Parameters
+        ----------
+        fname : str
+            Filepath/filename or dataframe.
+        **kwargs
+            With a 'csv' `datasource`, kwargs is passed to
+            pandas.read_csv_. Will be merged with/overwrite any kwargs
+            passed in the constructor. Should *not* include the
+            following keys: `usecols`, `names`, `converters`, `dtype`,
+            `index_col`.
+
+        """
         try:
-            self.data_table = (
-                np.genfromtxt(
-                    self.fname,
-                    usecols=usecols,
-                    dtype=all_dtype,
-                    names=all_names,
-                    converters=converters,
-                    **kwargs
-                )
-            )
-        except TypeError as err:
+            if self._datasource.strip().lower() == 'csv':
+                self._read_csv(fname, **kwargs)
+            elif self._datasource.strip().lower() in ('tob', 'tob1'):
+                self._read_tob1(fname)
+            elif self._datasource.strip().lower() == 'pd.df':
+                self.dataframe = fname
+                self._format_df()
+            else:
+                raise Error(f'Unrecognized file type:{self._datasource}')
+        except Exception as err:
             raise Error(err.args[0])
 
+        self._already_corrected_external = False
 
-    def data_check(self, bounds=None, rd_tol=0.5, ad_tol=1024, **kwargs):
-        """Apply some data QC."""
+    def _read_csv(self, fname, **kwargs):
+        kws = dict(
+            usecols=self._usecols,
+            # TODO
+            # index_col=self._time_col,
+            dtype=self._dtype,
+            names=self._names,
+            converters=self._converters,
+            **{**self._read_kws, **kwargs}
+        )
+        self.dataframe = pd.read_csv(fname, **kws)
 
-        data = self.data_table
-        flag_dict = self.flag_dict
-        var_names = self.var_names
-        #flag_names = flagarray.flag_names
+    def _read_tob1(self, tobfile):
+        self.dataframe = pd.DataFrame(util.tob1_to_array(tobfile))
+        self._format_df()
+
+    def _format_df(self):
+        self.dataframe = self.dataframe.iloc[:, self._usecols]
+        self.dataframe.columns = self._names
+        for k, func in self._converters.items():
+            self.dataframe.loc[:, k] = func(self.dataframe.loc[:, k])
+
+    def quality_check(self, bounds=None, rd_tol=0.5, ad_tol=1024):
+        """Apply some data QC/QA.
+
+        If problems are found, self.dataframe is modified to contain
+        only the longest contiguous stretch of good data.
+
+        Parameters
+        ----------
+        bounds : dict, optional
+            Dictionary specifying any prescribed lower and upper bounds
+            for legal data. Dict entries have the form ``varname:
+            (float, float)``, where varname is one of 'u', 'v', 'w',
+            'q', 'c', 'T', or 'P', and the 2-tuple holds values for the
+            lower and upper bounds: ``(lower, upper)``.  Data records
+            are rejected if a variable in the record is outside the
+            prescribed bounds. Default is ``bounds = {'c': (0, np.inf),
+            'q': (0, np.inf)}`` such that data records are rejected if c
+            or q data are not positive values.
+        rd_tol : float, optional
+            Relative tolerance for rejecting the datafile. Default is
+            `rd_tol` = 0.4.  See `ad_tol` for explanation.
+        ad_tol : int, optional
+            Absolute tolerance for rejecting the datafile. Defaults is
+            `ad_tol` = 1024. If the datafile contains bad records (not
+            readable, out-of-bounds, or flagged data), the partitioning
+            analysis is performed using the longest stretch of
+            consecutive good data records found, unless that stretch is
+            too short, in which case the analysis is aborted. The
+            criteria for judging 'too short' can be specified in both
+            relative and absolute terms: the datafile is rejected if the
+            good stretch is a fraction of the total data that is less
+            than `rd_tol`, and/or is less than `ad_tol` records long.
+
+        """
+        data = self.dataframe
 
         # 1D bool mask is True if any `data` field is missing (=nan)
-        mask = np.isnan(data[var_names].view(float).reshape(-1, 7)).any(axis=1)
+        mask = data.loc[:, HFData.var_names].isnull().any(axis=1).values
 
         # Also mask records with out-of-bounds or flagged data
         dbounds = {'c': (0, np.inf), 'q': (0, np.inf)}
         if bounds:
             dbounds.update(bounds)
         for var, (low, high) in dbounds.items():
-            mask[(data[var] <= low) | (data[var] >= high)] = True
-        if self.flags:
-            for flgname, goodval in self.flag_dict.items():
-                mask[data[flgname] != goodval] = True
+            mask[(data[var] < low) | (data[var] > high)] = True
+        if self._flags:
+            for flgname, val in self._flags.items():
+                mask[data[flgname] != val[1]] = True
 
         # Find longest span of valid (unmasked) data
         dummy_ma = np.ma.array(np.zeros([data.shape[0], ]), mask=mask)
@@ -179,7 +232,7 @@ class HFData(object):
         # verify sufficient data length
         data_frac = len_max_slice / data.shape[0]
         if data_frac < rd_tol or len_max_slice < ad_tol:
-            self.data_table = None
+            self.dataframe = None
             raise Error(
                 'HF Data read but rejected because the longest continuous run '
                 'of valid data was too short on a relative (length data / '
@@ -187,68 +240,24 @@ class HFData(object):
                 '(data length = {} < {})'
                 ''.format(data_frac, rd_tol, len_max_slice, ad_tol))
 
-        self.data_table = data[var_names][max_slice].copy()
+        self.dataframe = data.iloc[max_slice]
         return
 
-        if 0:
-            all_names = var_names.copy()
-        if 0:
-            usecols = np.array(cols, dtype=int).reshape(7,)
-
-            # make sure no duplicate kws
-            disallowed_kws = ('usecols', 'names', 'dtype', 'converters',
-                              'filling_values')
-            for kw in disallowed_kws:
-                delete_if_present = kwargs.pop(kw, False)
-
-            var_dtype = list(zip(var_names, 7 * (float, )))
-            all_dtype = var_dtype.copy()
-
-            # add flag columns to data table
-            if flags:
-                if isinstance(flags, list):
-                    fcols, goodvals = list(zip(*flags))
-                else:
-                    fcols, goodvals = [flags[0], ], [flags[1], ]
-                flag_names = list('flg' + str(i) for i in range(len(fcols)))
-
-                usecols = np.append(usecols, np.array(fcols, dtype=int))
-                all_dtype += list(zip(flag_names, [type(v) for v in goodvals]))
-                all_names += flag_names
-
-                # for later convenience
-                flag_dict = dict(zip(flag_names, goodvals))
-
-            try:
-                data = np.genfromtxt(fname, usecols=usecols, dtype=all_dtype,
-                                     names=all_names, converters=converters,
-                                     **kwargs)
-            except TypeError as err:
-                raise Error(err.args[0])
-
-    def __getitem__(self, name):
-        """Column-wise get without specifying data_table attribute"""
-        return self.data_table[name]
-
-    def __setitem__(self, name, value):
-        """Column-wise set without specifying data_table attribute"""
-        self.data_table[name] = value
-
     def truncate(self):
-        """Truncate length of data_table view to largest possible power of 2."""
-        truncate_len = 2 ** int(np.log2(self.data_table.shape[0]))
-        self.data_table = self.data_table[:truncate_len]
+        """Truncate dataframe length to largest possible power of 2."""
+        truncate_len = 2 ** int(np.log2(self.dataframe.shape[0]))
+        self.dataframe = self.dataframe.iloc[:truncate_len]
 
-    def qc_correct(self):
+    def correct_external(self):
         """Adjust q and c data series to correct for external effects.
 
-        Water vapor and carbon dioxide series data in the data_table are
+        Water vapor and carbon dioxide series data in the dataframe are
         corrected for external fluctuations associated with air
         temperature and vapor density. See: [WPL80]_ and [DK07]_.
 
         """
 
-        if self._qc_already_corrected:
+        if self._already_corrected_external:
             return
         ave_vapor = self['q'].mean()
         ave_co2 = self['c'].mean()
@@ -267,11 +276,11 @@ class HFData(object):
 
         self['q'] += muq * dev_vapor + (1 + muq) * ave_vapor * dev_T / ave_T
         self['c'] += muc * dev_vapor + (1 + muq) * ave_co2 * dev_T / ave_T
-        self._qc_already_corrected = True
+        self._already_corrected_external = True
         return
 
     def summarize(self):
-        """Return statisitical summary of high frequency data table.
+        """Summarize high frequency dataframe statistics.
 
         Returns
         -------
@@ -279,8 +288,7 @@ class HFData(object):
             :class:`~fluxpart.containers.HFSummary`
 
         """
-
-        hfs = util.stats2(self.data_table, self.names)
+        hfs = util.stats2(self.dataframe, HFData.var_names)
         Pvap = hfs.ave_q * GC.vapor * hfs.ave_T
         rho_dryair = (hfs.ave_P - Pvap) / GC.dryair / hfs.ave_T
         rho_totair = rho_dryair + hfs.ave_q
@@ -304,5 +312,5 @@ class HFData(object):
             rho_dryair=rho_dryair,
             rho_totair=rho_totair,
             cov_w_T=hfs.cov_w_T,
-            N=self.data_table.shape[0],
+            N=self.dataframe.shape[0],
             )

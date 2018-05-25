@@ -34,7 +34,7 @@ def test_flux_partition():
     hfd = {
         'cols': (2, 3, 4, 6, 5, 7, 8),
         'delimiter': ",",
-        'skip_header': 4,
+        'skiprows': 4,
         'unit_convert': {'q': 1e-3, 'c': 1e-6, 'P': 1e3},
         'temper_unit': 'C'}
 

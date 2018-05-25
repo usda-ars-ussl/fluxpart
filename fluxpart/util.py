@@ -9,6 +9,25 @@ from .constants import MOLECULAR_WEIGHT as MW          # kg/mol
 from .constants import SPECIFIC_GAS_CONSTANT as Rgas   # m^3 Pa / (kg K)
 
 
+NP_TYPE = {
+    'IEEE4': np.float32,
+    'IEEE8': np.float64,
+    'LONG': np.int32,
+    'ULONG': np.uint32,
+}
+
+
+def tob1_to_array(tobfile):
+    """Read TOB1 data file into structured numpy array."""
+    with open(tobfile, 'rb') as f:
+        f.readline() 
+        names = f.readline().decode().strip().replace('"', '').split(',')
+        f.readline()
+        f.readline()
+        types = f.readline().decode().strip().replace('"', '').split(',')
+        dtype = np.dtype([(n, NP_TYPE[t]) for n, t in zip(names, types)])
+        return np.fromfile(f, dtype=dtype) 
+
 def stats2(sarray, names=None):
     """Calculate means and (co)variances for structured array data."""
 
@@ -31,12 +50,11 @@ def stats2(sarray, names=None):
     NamedStats = namedtuple('Stats2', names_ave + names_var + names_cov)
     return NamedStats(**out)
 
-
 def sat_vapor_press(t_kelvin):
     # e_sat
     tr = 1 - 373.15 / t_kelvin
-    return (101325.
-        * exp(13.3185 * tr - 1.9760 * tr**2 - 0.6445 * tr**3 - 0.1299 * tr**4))
+    arg = 13.3185 * tr - 1.9760 * tr**2 - 0.6445 * tr**3 - 0.1299 * tr**4
+    return 101325. * exp(arg)
 
 
 def vapor_press_deficit(rho_vapor, t_kelvin):

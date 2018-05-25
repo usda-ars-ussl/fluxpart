@@ -130,7 +130,7 @@ class FVSPResult(object):
         return (
             'FVSPResult:\n' 
             + f'   mssg:: {self.mssg}\n'
-            + f'   valid_fluxes: {self.valid_fluxes}\n'
+            + f'   valid_partition: {self.valid_partition}\n'
             + f'   wave_lvl: {self.wave_lvl}\n'
             + self.wqc_data.__str__() + '\n' 
             + self.fluxes.__str__() + '\n' 
@@ -217,7 +217,7 @@ class HFSummary(object):
             + f'    rho_co2 = {rho_co2:.4} mg/m^3,\n'
             + f'    var_vapor = {var_vapor:.4} (g/m^3)^2,\n'
             + f'    var_co2 = {var_co2:.4} (mg/m^3)^2,\n'
-            + f'    corr_q_c = {self.cov_q_c:.4},\n'
+            + f'    corr_q_c = {self.corr_q_c:.4},\n'
             + f'    cov_w_q = {cov_w_q:.4} g/m^2/s,\n'
             + f'    H = {self.H:.4} W/m^2,\n'
             + f'    cov_w_c = {cov_w_c:.4} mg/m^2/s,\n'

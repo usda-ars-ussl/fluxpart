@@ -20,13 +20,14 @@ NP_TYPE = {
 def tob1_to_array(tobfile):
     """Read TOB1 data file into structured numpy array."""
     with open(tobfile, 'rb') as f:
-        f.readline() 
+        f.readline()
         names = f.readline().decode().strip().replace('"', '').split(',')
         f.readline()
         f.readline()
         types = f.readline().decode().strip().replace('"', '').split(',')
         dtype = np.dtype([(n, NP_TYPE[t]) for n, t in zip(names, types)])
-        return np.fromfile(f, dtype=dtype) 
+        return np.fromfile(f, dtype=dtype)
+
 
 def stats2(sarray, names=None):
     """Calculate means and (co)variances for structured array data."""
@@ -49,6 +50,7 @@ def stats2(sarray, names=None):
 
     NamedStats = namedtuple('Stats2', names_ave + names_var + names_cov)
     return NamedStats(**out)
+
 
 def sat_vapor_press(t_kelvin):
     # e_sat

@@ -2,27 +2,16 @@ import attr
 import numpy as np
 
 import fluxpart
-import fluxpart.hfdata as hfdata
-from .containers import (
-    #Fluxes,
-    WUE,
-    Outcome,
-    #RootSoln,
-    HFSummary,
-    #WQCData,
-    FVSPResult,
-    FluxpartResult,
-    AllFluxes,
-    )
+from .wue import water_use_efficiency, WUEError
+from .hfdata import HFData, HFDataReadError
 from .partition import fvspart_progressive
-#from .util import (
-#    qflux_mass_to_heat,
-#    qflux_mass_to_mol,
-#    cflux_mass_to_mol,
-#    vapor_press_deficit,
-#    )
 from .util import vapor_press_deficit
-import fluxpart.wue as wue
+from .containers import (
+    AllFluxes,
+    FluxpartResult,
+    HFSummary,
+    WUE,
+)
 
 DEFAULT_WUE_OPTIONS = dict(
     ci_mod='const_ratio',
@@ -34,7 +23,7 @@ DEFAULT_WUE_OPTIONS = dict(
 
 DEFAULT_HFD_OPTIONS = dict(
     cols=(1, 2, 3, 4, 5, 6, 7),
-    unit_convert=None,
+    unit_convert={},
     temper_unit='K',
     bounds=None,
     flags=None,
@@ -50,20 +39,15 @@ DEFAULT_PART_OPTIONS = dict(
 
 VERSION = fluxpart.__version__
 
-#NULL_RESULT = dict(
-#    label="",
-#    result=Result(*([""] * 5)),
-#    fluxes=Fluxes(),
-#    hfsummary=HFSummary(*np.full(18, np.nan)),
-#    wue=WUE(*np.full(13, np.nan)),
-#    rootsoln=RootSoln(),
-#    wqc_data=WQCData(*np.full(6, np.nan)),
-#    )
-
 
 def flux_partition(
-        fname, meas_wue=None, hfd_options=None, wue_options=None,
-        part_options=None, label=None):
+        fname,
+        meas_wue=None,
+        hfd_options=None,
+        wue_options=None,
+        part_options=None,
+        label=None,
+):
     """Partition CO2 & H2O fluxes into stomatal & nonstomatal components.
 
     This is the primary user interface for :mod:`Fluxpart`. The function
@@ -121,14 +105,7 @@ def flux_partition(
 
     Returns
     -------
-    dict
-        {'result': :class:`~fluxpart.containers.Result`,
-        'fluxes': :class:`~fluxpart.containers.Fluxes`,
-        'hfsummary': :class:`~fluxpart.containers.HFSummary`,
-        'wue': :class:`~fluxpart.containers.WUE`,
-        'rootsoln': :class:`~fluxpart.containers.RootSoln`,
-        'wqc_data': :class:`~fluxpart.containers.WQCData`,
-        'label': `label`}
+    :class:`~fluxpart.containers.FluxpartResult`
 
     Other Parameters
     ----------------
@@ -230,7 +207,18 @@ def flux_partition(
         https://pandas.pydata.org/pandas-docs/stable/generated/pandas.read_csv.html
 
     """
-    #null_result = NULL_RESULT
+    def abort(dataread, mssg):
+        hfs = hfsum if dataread else HFSummary()
+        return FluxpartResult(
+            label=label,
+            version=VERSION,
+            dataread=dataread,
+            attempt_partition=False,
+            valid_partition=False,
+            mssg=mssg,
+            hfsummary=hfs,
+        )
+
     hfd_options = {**DEFAULT_HFD_OPTIONS, **(hfd_options or {})}
     wue_options = {**DEFAULT_WUE_OPTIONS, **(wue_options or {})}
     part_options = {**DEFAULT_PART_OPTIONS, **(part_options or {})}
@@ -238,10 +226,9 @@ def flux_partition(
     usecols = np.array(hfd_options.pop('cols'), dtype=int).reshape(7,)
 
     converters = None
-    unit_convert = hfd_options.pop('unit_convert')
-    if unit_convert:
-        converters = {
-            k: _str_converter_func(float(v), 0.) for k, v in unit_convert.items()}
+    unit_convert = hfd_options.pop('unit_convert', {})
+    converters = {
+        k: _str_converter_func(float(v), 0.) for k, v in unit_convert.items()}
 
     temper_unit = hfd_options.pop('temper_unit')
     if temper_unit.upper() == 'C' or temper_unit.upper() == 'CELSIUS':
@@ -256,20 +243,11 @@ def flux_partition(
 
     # read high frequency data
     try:
-        hfdat = hfdata.HFData(cols=usecols, converters=converters, **hfd_options)
+        hfdat = HFData(cols=usecols, converters=converters, **hfd_options)
         hfdat.read(fname)
         hfdat.quality_check(bounds, rd_tol, ad_tol)
-    except hfdata.Error as err:
-        return FluxpartResult(
-                    label=label,
-                    outcome = Outcome(
-                        version=VERSION,
-                        dataread=False,
-                        attempt_partition=False,
-                        valid_partition=False,
-                        mssg='High frequency data error: ' + err.args[0],
-                    )
-               )
+    except HFDataReadError as err:
+        abort(dataread=False, mssg=err.args[0])
 
     # preliminary data processing and analysis
     hfdat.truncate()
@@ -277,73 +255,32 @@ def flux_partition(
         hfdat.correct_external()
     hfsum = hfdat.summarize()
 
-    # abort if friction velocity is too low (lack of turbulence)
+    # verify data are compatible with fvs partitioning
+
     if hfsum.ustar < ustar_tol:
         mssg = ('ustar = {:.4} is less than ustar_tol = {:.4}'.
                 format(hfsum.ustar, ustar_tol))
-        return FluxpartResult(
-                    label=label,
-                    hfsummary=hfsum,
-                    outcome = Outcome(
-                        version=VERSION,
-                        dataread=True,
-                        attempt_partition=False,
-                        valid_partition=False,
-                        mssg=mssg,
-                    )
-               )
+        abort(dataread=True, mssg=mssg)
 
-    # abort if atmospheric vapor pressure deficit is <= 0
     vpd = vapor_press_deficit(hfsum.rho_vapor, hfsum.T)
     if vpd <= 0:
-        return FluxpartResult(
-                    label=label,
-                    hfsummary=hfsum,
-                    outcome = Outcome(
-                        version=VERSION,
-                        dataread=True,
-                        attempt_partition=False,
-                        valid_partition=False,
-                        mssg='Vapor pressure deficit {}'.format(vpd),
-                    )
-               )
+        abort(dataread=True, mssg=f'Vapor pressure deficit {vpd}')
 
-    # abort if water vapor flux is downward (negative)
     if hfsum.cov_w_q <= 0:
         mssg = ('cov(w,q) = {:.4} <= 0 is incompatible with partitioning '
                 'algorithm'.format(hfsum.cov_w_q))
-        return FluxpartResult(
-                    label=label,
-                    hfsummary=hfsum,
-                    outcome = Outcome(
-                        version=VERSION,
-                        dataread=True,
-                        attempt_partition=False,
-                        valid_partition=False,
-                        mssg=mssg,
-                    )
-               )
+        abort(dataread=True, mssg=mssg)
 
-    # get or calculate water use efficiency
     if meas_wue:
-        leaf_wue = WUE(float(meas_wue), *np.full(12, np.nan))
+        leaf_wue = WUE(wue=float(meas_wue))
     else:
         try:
-            leaf_wue = wue.water_use_efficiency(hfsum, **wue_options)
-        except wue.Error as err:
-            return FluxpartResult(
-                        label=label,
-                        hfsummary=hfsum,
-                        outcome = Outcome(
-                            version=VERSION,
-                            dataread=True,
-                            attempt_partition=False,
-                            valid_partition=False,
-                            mssg=err.args[0],
-                        )
-                   )
+            leaf_wue = water_use_efficiency(hfsum, **wue_options)
+        except WUEError as err:
+            abort(dataread=True, mssg=err.args[0])
 
     # compute partitioned fluxes
+
     adjust_fluxes = part_options['adjust_fluxes']
     fvsp = (
         fvspart_progressive(
@@ -355,15 +292,6 @@ def flux_partition(
         )
     )
 
-    # collect results and return
-    outcome = Outcome(
-            version=VERSION,
-            dataread=True,
-            attempt_partition=True,
-            valid_partition=fvsp.valid_partition,
-            mssg=fvsp.mssg,
-            )
-
     if fvsp.valid_partition:
         fvsp.fluxes = AllFluxes(
                 **attr.asdict(fvsp.fluxes), temper_kelvin=hfsum.T)
@@ -372,7 +300,11 @@ def flux_partition(
 
     return FluxpartResult(
         label=label,
-        outcome=outcome,
+        version=VERSION,
+        dataread=True,
+        attempt_partition=True,
+        valid_partition=fvsp.valid_partition,
+        mssg=fvsp.mssg,
         fvsp_result=fvsp,
         hfsummary=hfsum,
         wue=leaf_wue,
@@ -387,6 +319,7 @@ def _str_converter_func(slope, intercept):
         except ValueError:
             return np.nan
     return func
+
 
 def _converter_func(slope, intercept):
     """Return a function for linear transform of data."""

@@ -31,21 +31,21 @@ def test_hfdata_read_csv():
 
     df = pd.read_csv(
             fname,
-            usecols=[2,3,4,5,6,7,8,9],
-            names=['u','v','w','c','q','T','P','ex_flag'],
+            usecols=[2, 3, 4, 5, 6, 7, 8, 9],
+            names=['u', 'v', 'w', 'c', 'q', 'T', 'P', 'ex_flag'],
             skiprows=4)
 
     data = HFData(
             datasource='pd.df',
             flags={'ex_flag': (7, 0)},
-            cols=[0,1,2,4,3,5,6],
+            cols=[0, 1, 2, 4, 3, 5, 6],
             converters={
                 'T': _converter_func(1, 273.15),
                 'q': _converter_func(1e-3, 0),
                 'c': _converter_func(1e-6, 0),
                 'P': _converter_func(1e3, 0),
             },
-           ) 
+           )
     data.read(df)
     assert_1300_read(data)
 
@@ -106,6 +106,7 @@ def test_hfdata_read_csv():
     npt.assert_allclose(toy.dataframe['T'], 3 * [4, ])
     npt.assert_allclose(toy.dataframe['P'], 3 * [5, ])
 
+
 def assert_1300_read(data):
     npt.assert_allclose(data['u'].iloc[0], 0.468)
     npt.assert_allclose(data['v'].iloc[0], -0.9077501)
@@ -130,6 +131,7 @@ def assert_1300_read(data):
     npt.assert_allclose(data['T'].mean(), 28.5431 + 273.15, atol=1e-4)
     npt.assert_allclose(data['P'].mean(), 100.179e3, atol=1e0)
 
+
 def assert_tob_read(data):
     npt.assert_allclose(data['u'].iloc[0], -2.57175016)
     npt.assert_allclose(data['v'].iloc[0], 1.6450001)
@@ -145,6 +147,7 @@ def assert_tob_read(data):
     npt.assert_allclose(data['q'].iloc[-1], 14.72776413e-3)
     npt.assert_allclose(data['T'].iloc[-1], 22.66570282 + 273.15)
     npt.assert_allclose(data['P'].iloc[-1], 85.06277466e3)
+
 
 if __name__ == '__main__':
     test_hfdata_read_csv()

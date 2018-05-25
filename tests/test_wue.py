@@ -29,5 +29,6 @@ def test_water_use_efficiency():
     npt.assert_allclose(wue.inter_h2o, 28.3e-3, atol=0.05e-3)
     npt.assert_allclose(wue.inter_co2, 492.e-6, atol=0.5e-6)
 
+
 if __name__ == '__main__':
     test_water_use_efficiency()

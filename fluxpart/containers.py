@@ -1,7 +1,5 @@
 """Classes used to group data and results."""
 
-from collections import namedtuple
-
 import attr
 import numpy as np
 
@@ -12,7 +10,7 @@ from .util import qflux_mass_to_heat, qflux_mass_to_mol, cflux_mass_to_mol
 class MassFluxes(object):
     """H2O and CO2 mass flux components.
 
-    Attributes
+    Parameters
     ----------
     Fq, Fqt, Fqe : float
         Total, transpiration, and evaporation H2O fluxes, kg/m^2/s
@@ -47,14 +45,14 @@ class MassFluxes(object):
 class AllFluxes(object):
     """Water vapor and CO2 fluxes.
 
-    Attributes
+    Parameters
     ----------
     Fq, Fqt, Fqe : float
         Total, transpiration, and evaporation H2O fluxes, kg/m^2/s.
     Fc, Fcp, Fcr : float
         Total, photosynthesis, and respiration CO2 fluxes, kg/m^2/s.
     temper_kelvin : float
-        Temerature, K
+        Temperature, K
 
     """
     Fq = attr.ib(default=np.nan)
@@ -64,18 +62,18 @@ class AllFluxes(object):
     Fcp = attr.ib(default=np.nan)
     Fcr = attr.ib(default=np.nan)
     temper_kelvin = attr.ib(default=np.nan)
-    
+
     def __attrs_post_init__(self):
         """Water vapor and CO2 fluxes.
 
-        Attributes
-        ----------
+        Derived Parameters
+        ------------------
         LE, LEt, LEe : float
-            Same vapor fluxes expressed as latent heat, W/m^2.
+            Water vapor fluxes expressed as latent heat, W/m^2.
         Fq_mol, Fqt_mol, Fqe_mol : float
-            Same vapor fluxes expressed as mol/m^2/s.
+            Water vapor fluxes expressed as mol/m^2/s.
         Fc_mol, Fcp_mol, Fcr_mol : float
-            Same CO2 fluxes expressed as mol/m^2/s.
+            CO2 fluxes expressed as mol/m^2/s.
 
         """
         self.LE = qflux_mass_to_heat(self.Fq, self.temper_kelvin)
@@ -118,7 +116,20 @@ class AllFluxes(object):
 
 @attr.s
 class FVSPResult(object):
-    """Result of FVS partitioning."""
+    """Result of FVS partitioning.
+
+    Parameters
+    ----------
+     wave_lvl : (int, int)
+         2-tuple indicating the level of filtering applied (number of
+         components removed from the series data). The second int is the
+         maximum possible wavelet decompostion level given the length of
+         the data. The first is the number of components remaining in the
+         data.  So when the first number is equal to the second, no
+         components have been removed (no filtering applied). When the
+         first number is 1, the maximum level of filtering was applied.
+
+    """
     wqc_data = attr.ib()
     rootsoln = attr.ib()
     fluxes = attr.ib()
@@ -128,12 +139,12 @@ class FVSPResult(object):
 
     def __str__(self):
         return (
-            'FVSPResult:\n' 
+            'FVSPResult:\n'
             + f'   mssg:: {self.mssg}\n'
             + f'   valid_partition: {self.valid_partition}\n'
             + f'   wave_lvl: {self.wave_lvl}\n'
-            + self.wqc_data.__str__() + '\n' 
-            + self.fluxes.__str__() + '\n' 
+            + self.wqc_data.__str__() + '\n'
+            + self.fluxes.__str__() + '\n'
             + self.rootsoln.__str__()
             )
 
@@ -230,7 +241,7 @@ class HFSummary(object):
 
 @attr.s
 class RootSoln(object):
-    """Results from calcuating the root (corr_cp_cr, var_cp).
+    """Results from calculating the root (corr_cp_cr, var_cp).
 
     Attributes
     ----------
@@ -273,16 +284,6 @@ class RootSoln(object):
             + '    mssg = {})'.format(self.mssg)
             )
 
-#    wave_lvl : (int, int)
-#        2-tuple indicating the level of filtering applied (number of
-#        components removed from the series data). The second int is the
-#        maximum possible wavelet decompostion level given the length of
-#        the data. The first is the number of components remaining in the
-#        data.  So when the first number is equal to the second, no
-#        components have been removed (no filtering applied). When the
-#        first number is 1, the maximum level of filtering was applied.
-#   wave_lvl')):
-#           + f'    wave_lvl = {})'
 
 @attr.s
 class WQCData(object):
@@ -305,12 +306,11 @@ class WQCData(object):
     wc = attr.ib(default=np.nan)
 
     def __str__(self):
-
         # For some fields, print common units instead of SI
-        var_q=1e6 * self.var_q
-        var_c=1e12 * self.var_c
-        wq=1e3 * self.wq
-        wc=1e6 * self.wc
+        var_q = 1e6 * self.var_q
+        var_c = 1e12 * self.var_c
+        wq = 1e3 * self.wq
+        wc = 1e6 * self.wc
         return (
             'WQCData(\n'
             + f'    var_q = {var_q:.4} (g/m^3)^2,\n'
@@ -320,39 +320,6 @@ class WQCData(object):
             + f'    wc = {wc:.4} mg/m^2/s'
             )
 
-
-@attr.s
-class Outcome(object):
-    """Overall outcome of partitioning.
-
-    Attributes
-    ----------
-    version : str
-        Fluxpart version
-    dataread, attempt_partition, valid_partition : bool
-        Indicates success or failure in reading high frequency data,
-        attempting and obtaining a valid partioning solution.
-    mssg : str
-        Possibly informative message if `dataread` or `valid_partition`
-        are False
-
-    """
-    version = attr.ib()
-    dataread = attr.ib()
-    attempt_partition = attr.ib()
-    valid_partition = attr.ib()
-    mssg = attr.ib()
-
-    def __str__(self):
-        return (
-            'Outcome(\n'
-            + f'    version = {self.version},\n'
-            + f'    dataread = {self.dataread},\n'
-            + f'    attempt_partition = {self.attempt_partition},\n'
-            + f'    valid_partition = {self.valid_partition},\n'
-            + f'    mssg = {self.mssg})'
-            )
-            
 
 @attr.s
 class WUE():
@@ -429,9 +396,40 @@ class WUE():
 
 @attr.s
 class FluxpartResult(object):
-    outcome = attr.ib()
+    """Overall outcome of partitioning.
+
+    Parameters
+    ----------
+    version : str
+        Fluxpart version
+    dataread, attempt_partition, valid_partition : bool
+        Indicates success or failure in reading high frequency data,
+        attempting and obtaining a valid partioning solution.
+    mssg : str
+        Possibly informative message if `dataread` or `valid_partition`
+        are False
+
+    TODO
+
+    """
+    version = attr.ib()
+    dataread = attr.ib()
+    attempt_partition = attr.ib()
+    valid_partition = attr.ib()
+    mssg = attr.ib()
     fvsp_result = attr.ib(
             default=FVSPResult(WQCData(), RootSoln(), AllFluxes()))
     hfsummary = attr.ib(default=HFSummary())
     wue = attr.ib(default=WUE())
     label = attr.ib(default=None)
+
+    # TODO
+    # def __str__(self):
+    #     return (
+    #         'Outcome(\n'
+    #         + f'    version = {self.version},\n'
+    #         + f'    dataread = {self.dataread},\n'
+    #         + f'    attempt_partition = {self.attempt_partition},\n'
+    #         + f'    valid_partition = {self.valid_partition},\n'
+    #         + f'    mssg = {self.mssg})'
+    #         )

@@ -79,7 +79,8 @@ def test_fvspart_interval():
 def assert_partition(fvsp, desired):
     if fvsp.rootsoln.isvalid:
         npt.assert_allclose(fvsp.rootsoln.var_cp, desired.var_cp, atol=1e-14)
-        npt.assert_allclose(fvsp.rootsoln.corr_cp_cr, desired.corr_cp_cr, atol=1e-2)
+        npt.assert_allclose(
+                fvsp.rootsoln.corr_cp_cr, desired.corr_cp_cr, atol=1e-2)
         npt.assert_allclose(fvsp.fluxes.Fqt, desired.Fqt, atol=1e-7)
         npt.assert_allclose(fvsp.fluxes.Fqe, desired.Fqe, atol=1e-7)
         npt.assert_allclose(fvsp.fluxes.Fcp, desired.Fcp, atol=1e-9)

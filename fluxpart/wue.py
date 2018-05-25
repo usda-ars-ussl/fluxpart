@@ -1,4 +1,4 @@
-from math import log, exp, sqrt
+from math import log, sqrt
 
 from .constants import GRAVITY, VON_KARMAN
 from .constants import MOLECULAR_WEIGHT as MW
@@ -7,7 +7,6 @@ from .containers import WUE
 from .util import sat_vapor_press, vapor_press_deficit
 
 
-# Defalut parameter values intercellular CO2 (ci) models
 _C3_DEFAULTS = dict(
     const_ppm=280.,       # ppm
     const_ratio=0.7,
@@ -26,6 +25,11 @@ CI_DEFAULT_PARAMS = dict(C3=_C3_DEFAULTS, C4=_C4_DEFAULTS)
 
 class Error(Exception):
     pass
+
+
+class WUEError(Error):
+    def __init__(self, message):
+        self.message = message
 
 
 def water_use_efficiency(hfs, meas_ht, canopy_ht, ppath, ci_mod,
@@ -140,7 +144,7 @@ def water_use_efficiency(hfs, meas_ht, canopy_ht, ppath, ci_mod,
 
     """
     if canopy_ht > meas_ht:
-        raise Error('canopy_ht is less than meas_ht')
+        raise WUEError('canopy_ht is less than meas_ht')
 
     # Assume zero-plane and roughness params for vapor and CO2 are the same.
     # d0 = Zero-plane displacement height (L), Eq. 5.2 of [CN98]
@@ -173,7 +177,7 @@ def water_use_efficiency(hfs, meas_ht, canopy_ht, ppath, ci_mod,
     # Ambient vapor pressure deficit
     vpd = vapor_press_deficit(hfs.rho_vapor, hfs.T)
     if vpd < 0:
-        raise Error('Negative vapor pressure deficit {}'.format(vpd))
+        raise WUEError('Negative vapor pressure deficit {}'.format(vpd))
 
     # Intercellular saturation vapor pressure `esat`
     leaf_T = (leaf_temper or hfs.T) + leaf_temper_corr
@@ -190,7 +194,7 @@ def water_use_efficiency(hfs, meas_ht, canopy_ht, ppath, ci_mod,
     ci_mod_name = ci_mod[0]
     if ci_mod_name == 'sqrt' and ppath == 'C4':
         err = "Combination of 'sqrt' ci model and 'C4' ppath not enabled"
-        raise Error(err)
+        raise WUEError(err)
     ci_mod_params = ci_mod[1] or CI_DEFAULT_PARAMS[ppath][ci_mod_name]
 
     ci_dispatch = {
@@ -205,10 +209,10 @@ def water_use_efficiency(hfs, meas_ht, canopy_ht, ppath, ci_mod,
 
     if ambient_co2 <= inter_co2:
         mssg = 'WUE estimate, ci={}, ca={}'.format(ambient_co2, inter_co2)
-        raise Error(mssg)
+        raise WUEError(mssg)
     if ambient_h2o >= inter_h2o:
         mssg = 'WUE estimate, qi={}, qa={}'.format(ambient_h2o, inter_h2o)
-        raise Error(mssg)
+        raise WUEError(mssg)
 
     return WUE(
         wue=wue,

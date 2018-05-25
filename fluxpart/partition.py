@@ -39,8 +39,8 @@ def fvspart_progressive(w, q, c, wue, adjust_fluxes=True):
 
     Notes
     -----
-    If a valid partitioning is not found, the returned `numersoln` and `wqc_data`
-    correspond to the final iteration attempted.
+    If a valid partitioning is not found, the returned `numersoln` and
+    `wqc_data` correspond to the final iteration attempted.
 
     """
     max_decomp_lvl = int(np.log2(w.size))
@@ -181,9 +181,9 @@ def findroot(wqc_data, wue):
 
     sd_q, sd_c = math.sqrt(var_q), math.sqrt(var_c)
     num0 = (corr_qc**2 - 1) * var_c * var_q * wue**2
-    num1 = (
-        -2 * corr_qc * sd_c * sd_q * wq * wc  + var_c * wq**2 + var_q * wc**2
-    )
+    num1 = -2 * corr_qc * sd_c * sd_q * wq * wc
+    num1 += var_c * wq**2 + var_q * wc**2
+
     numer = -num0 * num1
     denom = (
         (-corr_qc * sd_c * sd_q * (wc + wq * wue) + var_c * wq

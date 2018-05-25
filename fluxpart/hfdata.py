@@ -15,6 +15,21 @@ class Error(Exception):
     pass
 
 
+class HFDataReadError(Error):
+    def __init__(self, message):
+        self.message = message
+
+
+class TooFewDataError(Error):
+    def __init__(self, data_frac, rd_tol, len_max_slice, ad_tol):
+        self.message = (
+            'HF Data read but rejected because the longest continuous '
+            'run of valid data was too short on a relative (length '
+            'data / total length) = {:.4} < dtol = {:.4}) AND/OR '
+            'absolute basis (data length = {} < {})'
+            ''.format(data_frac, rd_tol, len_max_slice, ad_tol))
+
+
 class HFData(object):
     """High-frequency eddy covariance data.
 
@@ -145,9 +160,9 @@ class HFData(object):
                 self.dataframe = fname
                 self._format_df()
             else:
-                raise Error(f'Unrecognized file type:{self._datasource}')
+                raise HFDataReadError('Unknown file type')
         except Exception as err:
-            raise Error(err.args[0])
+            raise HFDataReadError(err.args[0])
 
         self._already_corrected_external = False
 
@@ -233,12 +248,7 @@ class HFData(object):
         data_frac = len_max_slice / data.shape[0]
         if data_frac < rd_tol or len_max_slice < ad_tol:
             self.dataframe = None
-            raise Error(
-                'HF Data read but rejected because the longest continuous run '
-                'of valid data was too short on a relative (length data / '
-                'total length) = {:.4} < dtol = {:.4}) AND/OR absolute basis '
-                '(data length = {} < {})'
-                ''.format(data_frac, rd_tol, len_max_slice, ad_tol))
+            raise TooFewDataError(data_frac, rd_tol, len_max_slice, ad_tol)
 
         self.dataframe = data.iloc[max_slice]
         return

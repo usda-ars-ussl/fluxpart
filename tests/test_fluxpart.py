@@ -66,7 +66,8 @@ def test_flux_partition():
         wue_options=wue_data,
         hfd_options=hfd)
 
-    npt.assert_allclose(fvsp.fvsp_result.rootsoln.var_cp, 15.2944e-12, atol=1e-12)
+    npt.assert_allclose(
+            fvsp.fvsp_result.rootsoln.var_cp, 15.2944e-12, atol=1e-12)
     assert_flux_components(fvsp.fvsp_result.fluxes, matlab_fluxes)
 
 

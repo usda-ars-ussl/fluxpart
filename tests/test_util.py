@@ -44,6 +44,6 @@ def test_stats2():
     assert not hasattr(ans, 'cov_v1_v2')
     assert not hasattr(ans, 'cov_v2_v1')
 
+
 if __name__ == "__main__":
     test_stats2()
-

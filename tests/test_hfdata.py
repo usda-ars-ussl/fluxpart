@@ -13,7 +13,7 @@ DATADIR = os.path.join(TESTDIR, 'data')
 
 
 def test_hfdata_read_csv():
-    cols = (2, 3, 4, 6, 5, 7, 8)
+    cols = (2, 3, 4, 5, 6, 7, 8)
     fname = os.path.join(DATADIR, 'TOA5_6843.ts_Above_2012_06_07_1300.dat')
 
     kws = dict(
@@ -38,7 +38,7 @@ def test_hfdata_read_csv():
     data = HFData(
             datasource='pd.df',
             flags={'ex_flag': (7, 0)},
-            cols=[0, 1, 2, 4, 3, 5, 6],
+            cols=[0, 1, 2, 3, 4, 5, 6],
             converters={
                 'T': _converter_func(1, 273.15),
                 'q': _converter_func(1e-3, 0),
@@ -52,7 +52,7 @@ def test_hfdata_read_csv():
     fname = os.path.join(DATADIR, '2017_08_03_0000_ts_data.tob')
     kws = dict(
               datasource='tob1',
-              cols=(3, 4, 5, 7, 6, 8, 9),
+              cols=(3, 4, 5, 6, 7, 8, 9),
               converters={
                   'T': _converter_func(1, 273.15),
                   'q': _converter_func(1e-3, 0),
@@ -83,7 +83,7 @@ def test_hfdata_read_csv():
     )
 
     toy = HFData(
-        cols=(1, 2, 3, 7, 6, 4, 5),
+        cols=(1, 2, 3, 6, 7, 4, 5),
         comment='#',
         skiprows=1,
         na_values="???",

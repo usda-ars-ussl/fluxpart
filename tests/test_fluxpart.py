@@ -32,7 +32,7 @@ def test_flux_partition():
         LEt=354.310004313924)
 
     hfd = {
-        'cols': (2, 3, 4, 6, 5, 7, 8),
+        'cols': (2, 3, 4, 5, 6, 7, 8),
         'delimiter': ",",
         'skiprows': 4,
         'unit_convert': {'q': 1e-3, 'c': 1e-6, 'P': 1e3},

@@ -44,12 +44,12 @@ class HFData(object):
         P = total air pressure (Pa)
 
     """
-    var_names = ['u', 'v', 'w', 'q', 'c', 'T', 'P']
+    var_names = ['u', 'v', 'w', 'c', 'q', 'T', 'P']
 
     def __init__(
             self,
             datasource='csv',
-            cols=(2, 3, 4, 6, 5, 7, 8),
+            cols=(2, 3, 4, 5, 6, 7, 8),
             time_col=None,
             converters=None,
             flags=None,
@@ -203,9 +203,7 @@ class HFData(object):
             'q', 'c', 'T', or 'P', and the 2-tuple holds values for the
             lower and upper bounds: ``(lower, upper)``.  Data records
             are rejected if a variable in the record is outside the
-            prescribed bounds. Default is ``bounds = {'c': (0, np.inf),
-            'q': (0, np.inf)}`` such that data records are rejected if c
-            or q data are not positive values.
+            prescribed bounds. Default is None.
         rd_tol : float, optional
             Relative tolerance for rejecting the datafile. Default is
             `rd_tol` = 0.4.  See `ad_tol` for explanation.
@@ -228,10 +226,8 @@ class HFData(object):
         mask = data.loc[:, HFData.var_names].isnull().any(axis=1).values
 
         # Also mask records with out-of-bounds or flagged data
-        dbounds = {'c': (0, np.inf), 'q': (0, np.inf)}
-        if bounds:
-            dbounds.update(bounds)
-        for var, (low, high) in dbounds.items():
+        bounds = bounds or {}
+        for var, (low, high) in bounds.items():
             mask[(data[var] < low) | (data[var] > high)] = True
         if self._flags:
             for flgname, val in self._flags.items():

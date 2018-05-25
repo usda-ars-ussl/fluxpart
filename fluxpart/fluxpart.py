@@ -22,10 +22,12 @@ DEFAULT_WUE_OPTIONS = dict(
     )
 
 DEFAULT_HFD_OPTIONS = dict(
-    cols=(1, 2, 3, 4, 5, 6, 7),
-    unit_convert={},
-    temper_unit='K',
-    bounds=None,
+    cols=(2, 3, 4, 5, 6, 7, 8),
+    skiprows=4,
+    sep=',',
+    unit_convert={'q': 1e-3, 'c': 1e-6, 'P': 1e3},
+    temper_unit='C',
+    bounds={'c': (0, np.inf), 'q': (0, np.inf)},
     flags=None,
     rd_tol=0.4,
     ad_tol=1024,
@@ -111,12 +113,11 @@ def flux_partition(
     ----------------
     hfd_options['cols'] : 7*(int,)
         7-tuple of integers indicating the column numbers of `fname`
-        that contain series data for (u, v, w, q, c, T, P), in that
-        order. Uses 0-based indexing. Default is (1, 2, 3, 4, 5, 6, 7)
-        (thus the first column (=0) in the file is not read)
+        that contain series data for (u, v, w, c, q, T, P), in that
+        order. Uses 0-based indexing. Default is (2, 3, 4, 5, 6, 7, 8)
     hfd_options['unit_convert'] : dict
         Dictionary of multiplication factors required to convert any u,
-        v, w, q, c, or P data not in SI units to SI units (m/s, kg/m^3,
+        v, w, c, q, or P data not in SI units to SI units (m/s, kg/m^3,
         Pa). (Note T is not in that list). The dictionary keys are the
         variable names. For example, if all data in `fname`
         are in SI units except P and c, which are in units of kPa and

@@ -49,7 +49,7 @@ def test_hfdata_read_csv():
     data.read(df)
     assert_1300_read(data)
 
-    fname = os.path.join(DATADIR, '2017_08_03_0000_ts_data.tob')
+    fname = os.path.join(DATADIR, 'testing.tob')
     kws = dict(
               datasource='tob1',
               cols=(3, 4, 5, 6, 7, 8, 9),
@@ -140,13 +140,13 @@ def assert_tob_read(data):
     npt.assert_allclose(data['q'].iloc[0], 13.11471748e-3)
     npt.assert_allclose(data['T'].iloc[0], 23.29580116 + 273.15)
     npt.assert_allclose(data['P'].iloc[0], 85.04070282e3)
-    npt.assert_allclose(data['u'].iloc[-1], -0.026)
-    npt.assert_allclose(data['v'].iloc[-1], -4.57375002)
-    npt.assert_allclose(data['w'].iloc[-1], -0.07250001)
-    npt.assert_allclose(data['c'].iloc[-1], 620.06219482e-6)
-    npt.assert_allclose(data['q'].iloc[-1], 14.72776413e-3)
-    npt.assert_allclose(data['T'].iloc[-1], 22.66570282 + 273.15)
-    npt.assert_allclose(data['P'].iloc[-1], 85.06277466e3)
+    npt.assert_allclose(data['u'].iloc[-1], -2.4402502)
+    npt.assert_allclose(data['v'].iloc[-1], 1.5402501)
+    npt.assert_allclose(data['w'].iloc[-1], -0.11375)
+    npt.assert_allclose(data['c'].iloc[-1], 615.627e-6)
+    npt.assert_allclose(data['q'].iloc[-1], 13.200139e-3)
+    npt.assert_allclose(data['T'].iloc[-1], 23.015879 + 273.15)
+    npt.assert_allclose(data['P'].iloc[-1], 85.0407e3)
 
 
 if __name__ == '__main__':

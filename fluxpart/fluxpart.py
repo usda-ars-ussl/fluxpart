@@ -3,7 +3,7 @@ import numpy as np
 
 import fluxpart
 from .wue import water_use_efficiency, WUEError
-from .hfdata import HFData, HFDataReadError
+from .hfdata import HFData, HFDataReadError, TooFewDataError
 from .partition import fvspart_progressive
 from .util import vapor_press_deficit
 from .containers import (
@@ -15,31 +15,35 @@ from .containers import (
     WUE,
 )
 
-DEFAULT_WUE_OPTIONS = dict(
+WUE_OPTIONS = dict(
     ci_mod='const_ratio',
     ci_mod_param=None,
     leaf_temper=None,
     leaf_temper_corr=0,
     diff_ratio=1.6,
-    )
+)
 
-DEFAULT_HFD_OPTIONS = dict(
+HFD_FORMAT = dict(
+    datasource='csv',
     cols=(2, 3, 4, 5, 6, 7, 8),
     skiprows=4,
     sep=',',
     unit_convert={'q': 1e-3, 'c': 1e-6, 'P': 1e3},
     temper_unit='C',
-    bounds={'c': (0, np.inf), 'q': (0, np.inf)},
     flags=None,
+)
+
+HFD_OPTIONS = dict(
+    bounds={'c': (0, np.inf), 'q': (0, np.inf)},
     rd_tol=0.4,
     ad_tol=1024,
     ustar_tol=0.1,
     correcting_external=True,
-    )
+)
 
-DEFAULT_PART_OPTIONS = dict(
+PART_OPTIONS = dict(
     adjust_fluxes=True,
-    )
+)
 
 VERSION = fluxpart.__version__
 
@@ -47,6 +51,7 @@ VERSION = fluxpart.__version__
 def flux_partition(
         fname,
         meas_wue=None,
+        hfd_format=None,
         hfd_options=None,
         wue_options=None,
         part_options=None,
@@ -80,15 +85,19 @@ def flux_partition(
     fname : str
         Name of delimited file containing high-frequency eddy covariance
         time series data.
-    hfd_options : dict, optional
-        Dictionary of parameters specifying options for reading, quality
-        control, and correcting high-frequency eddy covariance data. See
-        ``Other parameters`` section for a listing of valid
-        `hfd_options` fields. Note that `hfd_options` is optional only
-        if the high-frequency data being read are all in SI units and
-        the file is formatted according to the default options; see
+    hfd_format : dict, optional
+        Dictionary of parameters specifying options for reading and
+        correcting high-frequency eddy covariance data. See ``Other
+        parameters`` section for a listing of valid `hfd_format` fields.
+        Note that `hfd_options` is optional only if the high-frequency
+        data being read are all in SI units and the file is formatted
+        according to the default options; see
         `hfd_options['unit_convert']` and `hfd_options['temper_unit']`
         for information about specifying and converting data units.
+    hfd_options : dict, optional
+        Dictionary of parameters specifying options for quality control
+        and correcting high-frequency eddy covariance data. See
+        ``Other parameters`` section for a listing of valid keys.
     meas_wue : float, optional
         Measured (or otherwise prescribed) leaf-level water use
         efficiency (kg CO2 / kg H2O). Note that by definition,
@@ -113,11 +122,14 @@ def flux_partition(
 
     Other Parameters
     ----------------
-    hfd_options['cols'] : 7*(int,)
+    hfd_format['datasource'] : {'csv', 'tob1', 'pd.df'}
+        'csv' = delimited text file (default); 'tob1' = Campbell
+        Scientific binary format file; 'pd.df' = pandas dataframe.
+    hfd_format['cols'] : 7*(int,)
         7-tuple of integers indicating the column numbers of `fname`
         that contain series data for (u, v, w, c, q, T, P), in that
         order. Uses 0-based indexing. Default is (2, 3, 4, 5, 6, 7, 8)
-    hfd_options['unit_convert'] : dict
+    hfd_format['unit_convert'] : dict
         Dictionary of multiplication factors required to convert any u,
         v, w, c, q, or P data not in SI units to SI units (m/s, kg/m^3,
         Pa). (Note T is not in that list). The dictionary keys are the
@@ -128,9 +140,27 @@ def flux_partition(
         since it is necessary to multiply the kPa pressure data by 1e3
         to obtain the SI pressure unit (Pa), and the mg/m^3 CO2 data by
         1e-6 to obtain the SI concentration unit (kg/m^3).
-    hfd_options['temper_unit'] : {'K', 'C'}
+    hfd_format['temper_unit'] : {'K', 'C'}
         The units of the temperature data T in `fname`. Default is the
         SI unit, 'K'.
+    hfd_format['flags'] : dict
+        Specifies that one or more columns in `fname` are used to flag
+        bad data records. Dict keys are flag names (can be an arbitrary,
+        unique identifier); values are 2-tuples of the form
+        (col, badval), where col is an int specifying the column number
+        containing the flag (0-based indexing), and badval is the value
+        of the flag that indicates a bad data record. Default is None.
+    hfd_format[ other keys ]
+        When `hfd_format['datasource']` is 'csv', all other key:value
+        pairs in `hfd_format` are passed as keyword arguments to
+        pandas.read_csv_ (where the file is read). These keywords may be
+        required to specify the details of the formatting of the
+        delimited datafile.  Among the most commonly required are:
+        'sep', a str that is used to separate values or define column
+        widths (default is sep=','); and 'skiprows', which can be used
+        to skip header rows at the beginning of the file. See
+        pandas.read_csv_ for a full description of available format
+        options.
     hfd_options['bounds'] : dict
         Dictionary specifying any prescribed lower and upper bounds for
         valid data. Dictionary entries have the form
@@ -141,13 +171,6 @@ def flux_partition(
         bounds. Default is
         ``bounds = {'c': (0, np.inf), 'q': (0, np.inf)}`` such that data
         records are rejected if c or q data are not positive values.
-    hfd_options['flags'] : dict
-        Specifies that one or more columns in `fname` are used to flag
-        bad data records. Dict keys are flag names (can be an arbitrary,
-        unique identifier); values are 2-tuples of the form
-        (col, badval), where col is an int specifying the column number
-        containing the flag (0-based indexing), and badval is the value
-        of the flag that indicates a bad data record. Default is None.
     hfd_options['rd_tol'] : float
         Relative tolerance for rejecting the datafile. Default is
         'hfd_options['rd_tol']` = 0.4. See
@@ -165,18 +188,6 @@ def flux_partition(
         If True (default), the water vapor and carbon dioxide series
         data are corrected for external fluctuations associated with air
         temperature and vapor density according to [WPL80]_ and [DK07]_.
-    hfd_options[ other keys ]
-        All other key:value pairs in `hfd_options` are passed as keyword
-        arguments to pandas.read_csv_ (where the file is read). These
-        keywords are often required to specify the details of the
-        formatting of the delimited datafile.  Among the most
-        commonly required are: 'delimiter', a str, int, or sequence
-        that is used to separate values or define column widths (default
-        is that any consecutive whitespace delimits values); and
-        'skiprows', an int, list of ints, or callable that specifies
-        rows to skip (e.g. header rows at the beginning of the file. See
-        pandas.read_csv_ for a full description of available format
-        options.
     wue_options['canopy_ht'] : float
         Vegetation canopy height (m).
     wue_options['meas_ht'] : float
@@ -222,53 +233,56 @@ def flux_partition(
             hfsummary=hfs,
         )
 
-    hfd_options = {**DEFAULT_HFD_OPTIONS, **(hfd_options or {})}
-    wue_options = {**DEFAULT_WUE_OPTIONS, **(wue_options or {})}
-    part_options = {**DEFAULT_PART_OPTIONS, **(part_options or {})}
+    hfd_format = {**HFD_FORMAT, **(hfd_format or {})}
+    hfd_options = {**HFD_OPTIONS, **(hfd_options or {})}
+    wue_options = {**WUE_OPTIONS, **(wue_options or {})}
+    part_options = {**PART_OPTIONS, **(part_options or {})}
 
-    usecols = np.array(hfd_options.pop('cols'), dtype=int).reshape(7,)
+    usecols = np.array(hfd_format.pop('cols'), dtype=int).reshape(7,)
 
     converters = None
-    unit_convert = hfd_options.pop('unit_convert', {})
+    unit_convert = hfd_format.pop('unit_convert', {})
+    convert_arg = 'str' if hfd_format['datasource'] == 'csv' else None
     converters = {
-       k: _converter_func(float(v), 0., 'str') for k, v in unit_convert.items()
+       k: _converter_func(float(v), 0., convert_arg)
+       for k, v in unit_convert.items()
     }
 
-    temper_unit = hfd_options.pop('temper_unit')
+    temper_unit = hfd_format.pop('temper_unit')
     if temper_unit.upper() == 'C' or temper_unit.upper() == 'CELSIUS':
         converters = converters or {}
-        converters['T'] = _converter_func(1., 273.15, 'str')
-
-    correcting_external = hfd_options.pop('correcting_external')
-    ustar_tol = hfd_options.pop('ustar_tol')
-    bounds = hfd_options.pop('bounds')
-    rd_tol = hfd_options.pop('rd_tol')
-    ad_tol = hfd_options.pop('ad_tol')
+        converters['T'] = _converter_func(1., 273.15, convert_arg)
 
     # read high frequency data
     try:
-        hfdat = HFData(cols=usecols, converters=converters, **hfd_options)
+        hfdat = HFData(cols=usecols, converters=converters, **hfd_format)
         hfdat.read(fname)
-        hfdat.quality_check(bounds, rd_tol, ad_tol)
     except HFDataReadError as err:
         abort(dataread=False, mssg=err.args[0])
 
-    # preliminary data processing and analysis
+    # verify data are compatible with fvs partitioning
+    try:
+        hfdat.quality_check(
+            hfd_options['bounds'],
+            hfd_options['rd_tol'],
+            hfd_options['ad_tol'],
+        )
+    except TooFewDataError as err:
+        abort(dataread=True, mssg=err.args[0])
+
     hfdat.truncate()
-    if correcting_external:
+    if hfd_options['correcting_external']:
         hfdat.correct_external()
     hfsum = hfdat.summarize()
 
-    # verify data are compatible with fvs partitioning
-
-    if hfsum.ustar < ustar_tol:
+    if hfsum.ustar < hfd_options['ustar_tol']:
         mssg = ('ustar = {:.4} is less than ustar_tol = {:.4}'.
-                format(hfsum.ustar, ustar_tol))
+                format(hfsum.ustar, hfd_options['ustar_tol']))
         abort(dataread=True, mssg=mssg)
 
     vpd = vapor_press_deficit(hfsum.rho_vapor, hfsum.T)
     if vpd <= 0:
-        abort(dataread=True, mssg=f'Vapor pressure deficit {vpd}')
+        abort(dataread=True, mssg=f'Vapor pressure deficit({vpd} <= 0')
 
     if hfsum.cov_w_q <= 0:
         mssg = ('cov(w,q) = {:.4} <= 0 is incompatible with partitioning '
@@ -283,17 +297,13 @@ def flux_partition(
         except WUEError as err:
             abort(dataread=True, mssg=err.args[0])
 
-    # compute partitioned fluxes
-
-    adjust_fluxes = part_options['adjust_fluxes']
-    fvsp = (
-        fvspart_progressive(
-            hfdat['w'].values,
-            hfdat['q'].values,
-            hfdat['c'].values,
-            leaf_wue.wue,
-            adjust_fluxes,
-        )
+    # data seems OK so compute partitioned fluxes
+    fvsp = fvspart_progressive(
+               hfdat['w'].values,
+               hfdat['q'].values,
+               hfdat['c'].values,
+               leaf_wue.wue,
+               part_options['adjust_fluxes'],
     )
 
     if fvsp.valid_partition:

@@ -6,7 +6,7 @@ import numpy.testing as npt
 import pandas as pd
 
 from fluxpart.hfdata import HFData
-from fluxpart.fluxpart import _converter_func, _str_converter_func
+from fluxpart.fluxpart import _converter_func
 
 TESTDIR = os.path.dirname(os.path.realpath(__file__))
 DATADIR = os.path.join(TESTDIR, 'data')
@@ -18,10 +18,10 @@ def test_hfdata_read_csv():
 
     kws = dict(
             converters={
-                'T': _str_converter_func(1, 273.15),
-                'q': _str_converter_func(1e-3, 0),
-                'c': _str_converter_func(1e-6, 0),
-                'P': _str_converter_func(1e3, 0)},
+                'T': _converter_func(1, 273.15, 'str'),
+                'q': _converter_func(1e-3, 0, 'str'),
+                'c': _converter_func(1e-6, 0, 'str'),
+                'P': _converter_func(1e3, 0, 'str')},
             delimiter=",",
             skiprows=4)
 
@@ -87,7 +87,7 @@ def test_hfdata_read_csv():
         comment='#',
         skiprows=1,
         na_values="???",
-        converters={'q': _str_converter_func(10., 0)},
+        converters={'q': _converter_func(10., 0, 'str')},
         flags={'ex_flag': (9, 0)},
         delimiter=",",
         )

@@ -231,12 +231,13 @@ def flux_partition(
     converters = None
     unit_convert = hfd_options.pop('unit_convert', {})
     converters = {
-        k: _str_converter_func(float(v), 0.) for k, v in unit_convert.items()}
+       k: _converter_func(float(v), 0., 'str') for k, v in unit_convert.items()
+    }
 
     temper_unit = hfd_options.pop('temper_unit')
     if temper_unit.upper() == 'C' or temper_unit.upper() == 'CELSIUS':
         converters = converters or {}
-        converters['T'] = _str_converter_func(1., 273.15)
+        converters['T'] = _converter_func(1., 273.15, 'str')
 
     correcting_external = hfd_options.pop('correcting_external')
     ustar_tol = hfd_options.pop('ustar_tol')
@@ -355,21 +356,21 @@ class FluxpartResult(object):
     #         )
 
 
-def _str_converter_func(slope, intercept):
-    """Return func for linear transform of data when reading file."""
-    def func(stringval):
+def _converter_func(slope, intercept, argtype=None):
+    """Return a function for linear transform of data."""
+    def str_func(stringval):
         try:
             return slope * float(stringval) + intercept
         except ValueError:
             return np.nan
-    return func
 
-
-def _converter_func(slope, intercept):
-    """Return a function for linear transform of data."""
     def func(val):
         return slope * val + intercept
-    return func
+
+    if argtype is None:
+        return func
+    else:
+        return str_func
 
 
 if __name__ == "__main__":

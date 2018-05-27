@@ -82,7 +82,7 @@ class HFData(object):
             With a 'csv' `datasource`, kwargs is passed to
             pandas.read_csv_. Can be used to indicate additional
             formatting options. Should *not* include the following keys:
-            `usecols`, `names`, `converters`, `dtype`, `index_col`.
+            `usecols`, `names`, `converters`, `index_col`.
 
 
         .. _pandas.read_csv:
@@ -103,15 +103,6 @@ class HFData(object):
         self._read_kws = kwargs
         self._already_corrected_external = False
         self.dataframe = None
-
-    @property
-    def _dtype(self):
-        dtype = dict(zip(HFData.var_names, len(HFData.var_names) * (float, )))
-        dtype.update({k: type(v[1]) for k, v in self._flags.items()})
-        # Avoid pandas Warning about vars being in both converters and dtype
-        for k in self._converters.keys():
-            dtype.pop(k, None)
-        return dtype
 
     @property
     def _namecols(self):
@@ -147,7 +138,7 @@ class HFData(object):
             With a 'csv' `datasource`, kwargs is passed to
             pandas.read_csv_. Will be merged with/overwrite any kwargs
             passed in the constructor. Should *not* include the
-            following keys: `usecols`, `names`, `converters`, `dtype`,
+            following keys: `usecols`, `names`, `converters`,
             `index_col`.
 
         """
@@ -171,7 +162,6 @@ class HFData(object):
             usecols=self._usecols,
             # TODO
             # index_col=self._time_col,
-            dtype=self._dtype,
             names=self._names,
             converters=self._converters,
             **{**self._read_kws, **kwargs}

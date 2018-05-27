@@ -148,7 +148,7 @@ class HFData(object):
             elif self._datasource.strip().lower() in ('tob', 'tob1'):
                 self._read_tob1(fname)
             elif self._datasource.strip().lower() == 'pd.df':
-                self.dataframe = fname
+                self.dataframe = fname.iloc[:, self._usecols]
                 self._format_df()
             else:
                 raise HFDataReadError('Unknown file type')
@@ -160,20 +160,21 @@ class HFData(object):
     def _read_csv(self, fname, **kwargs):
         kws = dict(
             usecols=self._usecols,
+            header=None,
             # TODO
             # index_col=self._time_col,
-            names=self._names,
-            converters=self._converters,
+            # names=self._names,
             **{**self._read_kws, **kwargs}
         )
         self.dataframe = pd.read_csv(fname, **kws)
+        self._format_df()
 
     def _read_tob1(self, tobfile):
         self.dataframe = pd.DataFrame(util.tob1_to_array(tobfile))
+        self.dataframe = self.dataframe.iloc[:, self._usecols]
         self._format_df()
 
     def _format_df(self):
-        self.dataframe = self.dataframe.iloc[:, self._usecols]
         self.dataframe.columns = self._names
         for k, func in self._converters.items():
             self.dataframe.loc[:, k] = func(self.dataframe.loc[:, k])

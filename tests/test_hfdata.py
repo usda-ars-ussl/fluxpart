@@ -17,13 +17,14 @@ def test_hfdata_read_csv():
     fname = os.path.join(DATADIR, 'TOA5_6843.ts_Above_2012_06_07_1300.dat')
 
     kws = dict(
+            skiprows=4,
             converters={
-                'T': _converter_func(1, 273.15, 'str'),
-                'q': _converter_func(1e-3, 0, 'str'),
-                'c': _converter_func(1e-6, 0, 'str'),
-                'P': _converter_func(1e3, 0, 'str')},
-            delimiter=",",
-            skiprows=4)
+                'T': _converter_func(1, 273.15),
+                'q': _converter_func(1e-3, 0),
+                'c': _converter_func(1e-6, 0),
+                'P': _converter_func(1e3, 0),
+            },
+    )
 
     data = HFData(cols=cols, flags={'ex_flag': (9, 0)}, **kws)
     data.read(fname)
@@ -87,7 +88,7 @@ def test_hfdata_read_csv():
         comment='#',
         skiprows=1,
         na_values="???",
-        converters={'q': _converter_func(10., 0, 'str')},
+        converters={'q': _converter_func(10., 0)},
         flags={'ex_flag': (9, 0)},
         delimiter=",",
         )

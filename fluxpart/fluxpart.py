@@ -242,16 +242,12 @@ def flux_partition(
 
     converters = None
     unit_convert = hfd_format.pop('unit_convert', {})
-    convert_arg = 'str' if hfd_format['datasource'] == 'csv' else None
-    converters = {
-       k: _converter_func(float(v), 0., convert_arg)
-       for k, v in unit_convert.items()
-    }
+    converters = {k: _converter_func(v, 0.) for k, v in unit_convert.items()}
 
     temper_unit = hfd_format.pop('temper_unit')
     if temper_unit.upper() == 'C' or temper_unit.upper() == 'CELSIUS':
         converters = converters or {}
-        converters['T'] = _converter_func(1., 273.15, convert_arg)
+        converters['T'] = _converter_func(1., 273.15)
 
     # read high frequency data
     try:
@@ -366,21 +362,11 @@ class FluxpartResult(object):
     #         )
 
 
-def _converter_func(slope, intercept, argtype=None):
+def _converter_func(slope, intercept):
     """Return a function for linear transform of data."""
-    def str_func(stringval):
-        try:
-            return slope * float(stringval) + intercept
-        except ValueError:
-            return np.nan
-
     def func(val):
         return slope * val + intercept
-
-    if argtype is None:
-        return func
-    else:
-        return str_func
+    return func
 
 
 if __name__ == "__main__":

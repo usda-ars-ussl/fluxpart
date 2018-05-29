@@ -321,45 +321,67 @@ def flux_partition(
         )
 
 
-@attr.s
 class FluxpartResult(object):
-    """Fluxpart result.
+    """Fluxpart result."""
+    def __init__(
+            self,
+            version=VERSION,
+            dataread=False,
+            attempt_partition=False,
+            valid_partition=False,
+            mssg=None,
+            label=None,
+            hfsummary=None,
+            wue=None,
+            fvsp_result=None,
+    ):
+        """Fluxpart result.
 
-    Parameters
-    ----------
-    version : str
-        Fluxpart version
-    dataread, attempt_partition, valid_partition : bool
-        Indicates success or failure in reading high frequency data,
-        attempting and obtaining a valid partioning solution.
-    mssg : str
-        Possibly informative message if `dataread` or `valid_partition`
-        are False
+        Parameters
+        ----------
+        version : str
+            Fluxpart version
+        dataread, attempt_partition, valid_partition : bool
+            Indicates success or failure in reading high frequency data,
+            attempting and obtaining a valid partioning solution.
+        mssg : str
+            Possibly informative message if `dataread` or `valid_partition`
+            are False
+        label : optional
+            Optional id label. Could be, e.g. a datetime object or string.
+        fvsp_result : :class:`~fluxpart.containers.FVSPResult`
+        wue : :class:`~fluxpart.containers.WUE`
+        hfsummary : :class:`~fluxpart.containers.HFSummary`
 
-    TODO
+        """
+        self.version = version
+        self.dataread = dataread
+        self.attempt_partition = attempt_partition
+        self.valid_partition = valid_partition
+        self.mssg = mssg
+        self.label = label
+        self.fvsp_result = fvsp_result
+        self.wue = wue
+        self.hfsummary = hfsummary
 
-    """
-    version = attr.ib()
-    dataread = attr.ib()
-    attempt_partition = attr.ib()
-    valid_partition = attr.ib()
-    mssg = attr.ib()
-    fvsp_result = attr.ib(
-            default=FVSPResult(WQCData(), RootSoln(), AllFluxes()))
-    hfsummary = attr.ib(default=HFSummary())
-    wue = attr.ib(default=WUE())
-    label = attr.ib(default=None)
-
-    # TODO
-    # def __str__(self):
-    #     return (
-    #         'Outcome(\n'
-    #         + f'    version = {self.version},\n'
-    #         + f'    dataread = {self.dataread},\n'
-    #         + f'    attempt_partition = {self.attempt_partition},\n'
-    #         + f'    valid_partition = {self.valid_partition},\n'
-    #         + f'    mssg = {self.mssg})'
-    #         )
+    def __str__(self):
+        result = (
+            '===============\n'
+            'Fluxpart Result\n'
+            '===============\n'
+            f'version = {self.version}\n'
+            f'dataread = {self.dataread}\n'
+            f'attempt_partition = {self.attempt_partition}\n'
+            f'valid_partition = {self.valid_partition}\n'
+            f'mssg = {self.mssg}\n'
+        )
+        if self.fvsp_result is not None:
+            result += self.fvsp_result.__str__() + '\n'
+        if self.wue is not None:
+            result += self.wue.__str__() + '\n'
+        if self.hfsummary is not None:
+            result += self.hfsummary.__str__()
+        return result
 
 
 def _converter_func(slope, intercept):

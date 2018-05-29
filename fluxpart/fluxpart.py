@@ -1,7 +1,7 @@
 import attr
 import numpy as np
 
-import fluxpart
+from .__version__ import __version__
 from .wue import water_use_efficiency, WUEError
 from .hfdata import HFData, HFDataReadError, TooFewDataError
 from .partition import fvspart_progressive
@@ -45,7 +45,9 @@ PART_OPTIONS = dict(
     adjust_fluxes=True,
 )
 
-VERSION = fluxpart.__version__
+_bad_ustar = 'ustar = {:.4} is less than ustar_tol = {:.4}'
+_bad_vpd = 'Vapor pressure deficit({} <= 0'
+_bad_qflux = 'Fq = cov(w,q) = {:.4} <= 0 is incompatible with fvs partitioning'
 
 
 def flux_partition(
@@ -221,50 +223,33 @@ def flux_partition(
         https://pandas.pydata.org/pandas-docs/stable/generated/pandas.read_csv.html
 
     """
-    def abort(dataread, mssg):
-        hfs = hfsum if dataread else HFSummary()
-        return FluxpartResult(
-            label=label,
-            version=VERSION,
-            dataread=dataread,
-            attempt_partition=False,
-            valid_partition=False,
-            mssg=mssg,
-            hfsummary=hfs,
-        )
-
     hfd_format = {**HFD_FORMAT, **(hfd_format or {})}
     hfd_options = {**HFD_OPTIONS, **(hfd_options or {})}
     wue_options = {**WUE_OPTIONS, **(wue_options or {})}
     part_options = {**PART_OPTIONS, **(part_options or {})}
 
     usecols = np.array(hfd_format.pop('cols'), dtype=int).reshape(7,)
-
-    converters = None
     unit_convert = hfd_format.pop('unit_convert', {})
     converters = {k: _converter_func(v, 0.) for k, v in unit_convert.items()}
-
     temper_unit = hfd_format.pop('temper_unit')
     if temper_unit.upper() == 'C' or temper_unit.upper() == 'CELSIUS':
-        converters = converters or {}
         converters['T'] = _converter_func(1., 273.15)
 
-    # read high frequency data
     try:
         hfdat = HFData(cols=usecols, converters=converters, **hfd_format)
         hfdat.read(fname)
     except HFDataReadError as err:
-        abort(dataread=False, mssg=err.args[0])
+        return FluxpartResult(dataread=False, mssg=err.args[0])
 
-    # verify data are compatible with fvs partitioning
+    # Early returns if data are not compatible with fvs partitioning
     try:
-        hfdat.quality_check(
+        hfdat.cleanse(
             hfd_options['bounds'],
             hfd_options['rd_tol'],
             hfd_options['ad_tol'],
         )
     except TooFewDataError as err:
-        abort(dataread=True, mssg=err.args[0])
+        return FluxpartResult(dataread=True, mssg=err.args[0])
 
     hfdat.truncate()
     if hfd_options['correcting_external']:
@@ -272,18 +257,16 @@ def flux_partition(
     hfsum = hfdat.summarize()
 
     if hfsum.ustar < hfd_options['ustar_tol']:
-        mssg = ('ustar = {:.4} is less than ustar_tol = {:.4}'.
-                format(hfsum.ustar, hfd_options['ustar_tol']))
-        abort(dataread=True, mssg=mssg)
+        mssg = _bad_ustar.format(hfsum.ustar, hfd_options['ustar_tol'])
+        return FluxpartResult(dataread=True, mssg=mssg, hfsummary=hfsum)
 
     vpd = vapor_press_deficit(hfsum.rho_vapor, hfsum.T)
     if vpd <= 0:
-        abort(dataread=True, mssg=f'Vapor pressure deficit({vpd} <= 0')
+        return FluxpartResult(dataread=True, mssg=_bad_vpd.format(vpd))
 
     if hfsum.cov_w_q <= 0:
-        mssg = ('cov(w,q) = {:.4} <= 0 is incompatible with partitioning '
-                'algorithm'.format(hfsum.cov_w_q))
-        abort(dataread=True, mssg=mssg)
+        mssg = _bad_qflux.format(hfsum.cov_w_q)
+        return FluxpartResult(dataread=True, mssg=mssg, hfsummary=hfsum)
 
     if meas_wue:
         leaf_wue = WUE(wue=float(meas_wue))
@@ -291,9 +274,11 @@ def flux_partition(
         try:
             leaf_wue = water_use_efficiency(hfsum, **wue_options)
         except WUEError as err:
-            abort(dataread=True, mssg=err.args[0])
+            return FluxpartResult(
+                    dataread=True, mssg=err.args[0], hfsummary=hfsum
+            )
 
-    # data seems OK so compute partitioned fluxes
+    # Everything seems OK so compute partitioned fluxes
     fvsp = fvspart_progressive(
                hfdat['w'].values,
                hfdat['q'].values,
@@ -306,11 +291,11 @@ def flux_partition(
         fvsp.fluxes = AllFluxes(
                 **attr.asdict(fvsp.fluxes), temper_kelvin=hfsum.T)
     else:
-        fvsp.fluxes = AllFluxes()
+        fvsp.fluxes = None
 
     return FluxpartResult(
         label=label,
-        version=VERSION,
+        version=__version__,
         dataread=True,
         attempt_partition=True,
         valid_partition=fvsp.valid_partition,
@@ -325,7 +310,7 @@ class FluxpartResult(object):
     """Fluxpart result."""
     def __init__(
             self,
-            version=VERSION,
+            version=__version__,
             dataread=False,
             attempt_partition=False,
             valid_partition=False,

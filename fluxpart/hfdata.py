@@ -191,8 +191,8 @@ class HFData(object):
         for k, func in self._converters.items():
             self.dataframe.loc[:, k] = func(self.dataframe.loc[:, k])
 
-    def quality_check(self, bounds=None, rd_tol=0.5, ad_tol=1024):
-        """Apply some data QC/QA.
+    def cleanse(self, bounds=None, rd_tol=0.5, ad_tol=1024):
+        """Apply some data QC/QA, remove bad data.
 
         If problems are found, self.dataframe is modified to contain
         only the longest contiguous stretch of good data.

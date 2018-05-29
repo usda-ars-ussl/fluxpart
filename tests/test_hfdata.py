@@ -110,7 +110,7 @@ def test_hfdata_read_csv():
         delimiter=",",
         )
     toy.read(io.BytesIO(toy_data.encode()))
-    toy.quality_check(
+    toy.cleanse(
         rd_tol=0.1,
         ad_tol=2,
         bounds={'v': (0, np.inf)},

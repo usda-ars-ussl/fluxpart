@@ -30,6 +30,23 @@ def test_hfdata_read_csv():
     data.read(fname)
     assert_1300_read(data)
 
+    kws = dict(
+            time_col=0,
+            skiprows=4,
+            converters={
+                'T': _converter_func(1, 273.15),
+                'q': _converter_func(1e-3, 0),
+                'c': _converter_func(1e-6, 0),
+                'P': _converter_func(1e3, 0),
+            },
+    )
+
+    data = HFData(cols=cols, flags={'ex_flag': (9, 0)}, **kws)
+    data.read(fname)
+    assert_1300_read(data)
+    assert(data.dataframe.index[0] == pd.to_datetime('2012-06-07 13:00:00.05'))
+    assert(data.dataframe.index[-1] == pd.to_datetime('2012-06-07 13:15:00'))
+
     df = pd.read_csv(
             fname,
             usecols=[2, 3, 4, 5, 6, 7, 8, 9],
@@ -148,6 +165,8 @@ def assert_tob_read(data):
     npt.assert_allclose(data['q'].iloc[-1], 13.200139e-3)
     npt.assert_allclose(data['T'].iloc[-1], 23.015879 + 273.15)
     npt.assert_allclose(data['P'].iloc[-1], 85.0407e3)
+    assert(data.dataframe.index[0] == pd.to_datetime('2017-08-03 00:00:00.1'))
+    assert(data.dataframe.index[-1] == pd.to_datetime('2017-08-03 00:00:14.4'))
 
 
 if __name__ == '__main__':

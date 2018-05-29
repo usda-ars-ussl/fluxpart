@@ -64,8 +64,8 @@ class HFData(object):
         cols : 7*(int,), optional
             Column indices for (u, v, w, q, c, T, P) data, in that
             order. 0-based indexing. Default is (2, 3, 4, 6, 5, 7, 8).
-        time_col : int, optional (TODO)
-            (TODO) Datetime column. Default is None.
+        time_col : int, optional
+            Datetime column for `csv` data.  Default is None.
         converters : dict, optional
             Dictionary of functions used to convert any non-SI data to
             SI units.  Dict keys are 'u', 'v', 'w', 'q', 'c', 'T', or
@@ -108,6 +108,8 @@ class HFData(object):
     def _namecols(self):
         namecols = dict(zip(HFData.var_names, self._cols))
         namecols.update({k: v[0] for k, v in self._flags.items()})
+        if isinstance(self._time_col, int) and self._datasource == 'csv':
+            namecols['Datetime'] = self._time_col
         return namecols
 
     @property
@@ -161,16 +163,26 @@ class HFData(object):
         kws = dict(
             usecols=self._usecols,
             header=None,
-            # TODO
-            # index_col=self._time_col,
-            # names=self._names,
             **{**self._read_kws, **kwargs}
         )
         self.dataframe = pd.read_csv(fname, **kws)
+        if isinstance(self._time_col, int):
+            self.dataframe['Datetime'] = (
+                pd.to_datetime(self.dataframe.iloc[:, self._time_col])
+            )
+            self.dataframe = self.dataframe.set_index('Datetime')
         self._format_df()
 
     def _read_tob1(self, tobfile):
         self.dataframe = pd.DataFrame(util.tob1_to_array(tobfile))
+        secs = self.dataframe.loc[:, 'SECONDS'] 
+        secs += 10**-9 * self.dataframe.loc[:, 'NANOSECONDS']
+        self.dataframe['Datetime'] = pd.to_datetime(
+            secs,
+            unit='s',
+            origin='1990-01-01',
+        )
+        self.dataframe = self.dataframe.set_index('Datetime')
         self.dataframe = self.dataframe.iloc[:, self._usecols]
         self._format_df()
 

@@ -105,12 +105,12 @@ def progressive_lowcut_series(series):
     'details' (D)::
 
         S = A(N) + D(N) + D(N-1) ... D(2) + D(1)
-          = A(N-1) + D(N-1) + ... D(2) + D(1)        [A(N-1) = A(N) + D(N)]
+          = A(N-1) + D(N-1) + ... D(2) + D(1)     [A(N-1) = A(N) + D(N)]
             ...
-          = A(1) + D(1)                              [(A(1) = A(2) + D(2)]
+          = A(1) + D(1)                           [(A(1) = A(2) + D(2)]
 
-    where A(N) represents the 'lowest' level approximation [e.g., for
-    the haar wavelet and a complete decomposition of dyadic length data,
+    where A(N) represents the 'lowest' level approximation. For
+    the haar wavelet and data S having a length that is a power of 2,
     A(N) is equal to mean(S)]
 
     The sequence returned by this function is::

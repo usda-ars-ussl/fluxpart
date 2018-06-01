@@ -411,7 +411,7 @@ def _adjust_fluxes(flux_components, wue, Fq_tot, Fc_tot):
 def _progressive_lowcut(wind, vapor, co2):
     """Apply progressive lowcut filter to wind, vapor, and CO2 series.
 
-    Use wavelet decompostion to yield a sequence of (w, q, c) series
+    Use wavelet decomposition to yield a sequence of (w, q, c) series
     in which low frequency (large scale) components are progressively
     removed from w, q, c.
 
@@ -429,14 +429,14 @@ def _progressive_lowcut(wind, vapor, co2):
 
     Notes
     -----
-    The time series data are truncated at the maxium dyadic length
-    (power of 2) before the filter is applied.
+    Before the filter is applied, the data are truncated so that the
+    length is a power of 2.
 
     """
-    max_dyadic_len = 2**int(np.log2(np.asarray(co2).shape[0]))
-    trunc_w = np.asarray(wind)[:max_dyadic_len]
-    trunc_q = np.asarray(vapor)[:max_dyadic_len]
-    trunc_c = np.asarray(co2)[:max_dyadic_len]
+    max_pow2_len = 2**int(np.log2(np.asarray(co2).shape[0]))
+    trunc_w = np.asarray(wind)[:max_pow2_len]
+    trunc_q = np.asarray(vapor)[:max_pow2_len]
+    trunc_c = np.asarray(co2)[:max_pow2_len]
     lowcut_w = util.progressive_lowcut_series(trunc_w)
     lowcut_q = util.progressive_lowcut_series(trunc_q)
     lowcut_c = util.progressive_lowcut_series(trunc_c)

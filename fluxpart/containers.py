@@ -117,9 +117,9 @@ class AllFluxes(object):
                 'Fqe_mol = {:.4} mmol/m^2/s'.format(1e3 * self.Fqe_mol),
                 'Fcr_mol = {:.4} umol/m^2/s\n\n'.format(1e6 * self.Fcr_mol)
             ) +
-                'LE  = {:.4} W/m^2\n'.format(self.LE) +
-                'LEt = {:.4} W/m^2\n'.format(self.LEt) +
-                'LEe = {:.4} W/m^2)'.format(self.LEe)
+            'LE  = {:.4} W/m^2\n'.format(self.LE) +
+            'LEt = {:.4} W/m^2\n'.format(self.LEt) +
+            'LEe = {:.4} W/m^2)'.format(self.LEe)
         )
 
 

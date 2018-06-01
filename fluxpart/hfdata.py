@@ -1,5 +1,16 @@
-"""Data structure for high-frequency eddy covariance time series."""
+"""
+High-frequency eddy covariance time series data.
 
+The following notation is used in variable naming and documentation to
+represent meteorological quantities (SI units)::
+
+    u, v, w = wind velocities (m/s)
+    q = water vapor mass concentration (kg/m^3)
+    c = carbon dioxide mass concentration (kg/m^3)
+    T = air temperature (K)
+    P = total air pressure (Pa)
+
+"""
 import math
 import numpy as np
 import pandas as pd
@@ -25,90 +36,67 @@ class TooFewDataError(Error):
         self.message = (
             'HF Data read but rejected because the longest continuous '
             'run of valid data was too short on a relative (length '
-            'data / total length) = {:.4} < dtol = {:.4}) AND/OR '
-            'absolute basis (data length = {} < {})'
+            'data / total length) = {:.4} < rd_tol = {:.4}) and/or '
+            'absolute basis (data length = {} < ad_tol = {})'
             ''.format(data_frac, rd_tol, len_max_slice, ad_tol))
 
 
-class HFData(object):
-    """High-frequency eddy covariance data.
+class HFDataReader(object):
+    """Reader for high-frequency eddy covariance data.
 
-    The following notation is used in variable naming and
-    documentation to represent meteorological quantities (SI
-    units)::
+    Parameters
+    ----------
+    filetype : {'csv', 'tob1'}
+        'csv' = delimited text file (default); 'tob1' = Campbell
+        Scientific binary format file.
+    cols : 7*(int,), optional
+        Column indices for (u, v, w, q, c, T, P) data, in that order.
+        0-based indexing. Default is (2, 3, 4, 6, 5, 7, 8).
+    time_col : int, optional
+        Datetime column for `csv` data. Default is None.
+    converters : dict, optional
+        Dictionary of functions used to convert any non-SI data to
+        SI units.  Dict keys are 'u', 'v', 'w', 'q', 'c', 'T', or
+        'P'. Funcs take a single argument, e.g.
+        ``converters={'P': lambda arg: 1e3 * arg}``.
+    flags : 2-tuple or list of 2-tuples, optional
+        Specifies that one or more data columns are used to flag bad
+        data records. Each tuple is of the form (col, goodval), where
+        col is an int specifying the column number containing the flag
+        (0-based indexing), and goodval is the value of the flag that
+        indicates a good data record.
+    **kwargs
+        Passed to pandas.read_csv_ when filetype is csv. Should not
+        include `usecols`  or `header` keywords.
 
-        u, v, w = wind velocities (m/s)
-        q = water vapor mass concentration (kg/m^3)
-        c = carbon dioxide mass concentration (kg/m^3)
-        T = air temperature (K)
-        P = total air pressure (Pa)
+
+    .. _pandas.read_csv:
+        https://pandas.pydata.org/pandas-docs/stable/generated/pandas.read_csv.html
 
     """
     var_names = ['u', 'v', 'w', 'c', 'q', 'T', 'P']
 
     def __init__(
             self,
-            datasource='csv',
+            filetype='csv',
             cols=(2, 3, 4, 5, 6, 7, 8),
             time_col=None,
             converters=None,
             flags=None,
-            **kwargs):
-        """High-frequency eddy covariance data.
-
-        Parameters
-        ----------
-        datasource : {'csv', 'tob1', 'pd.df'}
-            'csv' = delimited text file (default); 'tob1' = Campbell
-            Scientific binary format file; 'pd.df' = pandas dataframe.
-        cols : 7*(int,), optional
-            Column indices for (u, v, w, q, c, T, P) data, in that
-            order. 0-based indexing. Default is (2, 3, 4, 6, 5, 7, 8).
-        time_col : int, optional
-            Datetime column for `csv` data.  Default is None.
-        converters : dict, optional
-            Dictionary of functions used to convert any non-SI data to
-            SI units.  Dict keys are 'u', 'v', 'w', 'q', 'c', 'T', or
-            'P'. With a 'csv' `datasource`, the funcs take a string
-            single argument, e.g.
-            ``converters={'P': lambda s: 1e3 * float(s)}``.
-        flags : 2-tuple or list of 2-tuples, optional
-            Specifies that one or more columns in `fname` are used to
-            flag bad data records. Each tuple is of the form (col,
-            goodval), where col is an int specifying the column number
-            containing the flag (0-based indexing), and goodval is the
-            value of the flag that indicates a good data record.
-        **kwargs
-            With a 'csv' `datasource`, kwargs is passed to
-            pandas.read_csv_. Can be used to indicate additional
-            formatting options. Should *not* include the following keys:
-            `usecols`, `names`, `converters`, `index_col`.
-
-
-        .. _pandas.read_csv:
-            https://pandas.pydata.org/pandas-docs/stable/generated/pandas.read_csv.html
-
-        Attributes
-        ----------
-        dataframe : pandas dataframe
-            Table of high frequency data series with columns 'u', 'v',
-            'w', 'q', 'c', 'T', and 'P'
-
-        """
-        self._datasource = datasource
+            **kwargs
+    ):
+        self._filetype = filetype
         self._cols = cols
         self._time_col = time_col
         self._converters = converters or {}
         self._flags = flags or {}
-        self._read_kws = kwargs
-        self._already_corrected_external = False
-        self.dataframe = None
+        self._readcsv_kws = kwargs
 
     @property
     def _namecols(self):
-        namecols = dict(zip(HFData.var_names, self._cols))
+        namecols = dict(zip(HFDataReader.var_names, self._cols))
         namecols.update({k: v[0] for k, v in self._flags.items()})
-        if isinstance(self._time_col, int) and self._datasource == 'csv':
+        if isinstance(self._time_col, int) and self._filetype == 'csv':
             namecols['Datetime'] = self._time_col
         return namecols
 
@@ -121,6 +109,85 @@ class HFData(object):
     def _usecols(self):
         return [self._namecols[k] for k in self._names]
 
+    def read(self, fname, **kwargs):
+        """Read high frequency eddy covariance data into dataframe.
+
+        Parameters
+        ----------
+        fname : str
+            Filename.
+        **kwargs
+            Passed to pandas.read_csv_ when filetype is csv. Will
+            override any duplicate kwargs passed to the constructor.
+            Should not include `usecols`  or `header` keywords.
+
+
+        .. _pandas.read_csv:
+            https://pandas.pydata.org/pandas-docs/stable/generated/pandas.read_csv.html
+
+        """
+        try:
+            filetype = self._filetype.strip().lower()
+            if filetype == 'csv':
+                dataframe = self._read_csv(fname, **kwargs)
+            elif filetype in ('tob', 'tob1'):
+                dataframe = self._read_tob1(fname)
+            elif filetype == 'pd.df':
+                dataframe = self._read_df(fname)
+            else:
+                raise HFDataReadError('Unknown file type')
+        except Exception as err:
+            raise HFDataReadError(err.args[0])
+
+        dataframe = self._unit_convert(dataframe)
+        dataframe = self._flagvals_to_mask(dataframe)
+        return dataframe
+
+    def _read_csv(self, csvfile, **kwargs):
+        df = pd.read_csv(
+                csvfile,
+                usecols=self._usecols,
+                header=None,
+                **{**self._readcsv_kws, **kwargs}
+        )
+        df.columns = self._names
+        if self._time_col is not None:
+            df['Datetime'] = pd.to_datetime(df.iloc[:, self._time_col])
+            df = df.set_index('Datetime')
+        return df
+
+    def _read_tob1(self, tobfile):
+        df = pd.DataFrame(util.tob1_to_array(tobfile))
+        df['Datetime'] = pd.to_datetime(
+            arg=df.loc[:, 'SECONDS'] + 10**-9 * df.loc[:, 'NANOSECONDS'],
+            unit='s',
+            origin='1990-01-01',
+        )
+        df = df.set_index('Datetime')
+        return self._read_df(df)
+
+    def _read_df(self, df):
+        df = df.iloc[:, self._usecols]
+        df.columns = self._names
+        return df
+
+    def _unit_convert(self, df):
+        for var, func in self._converters.items():
+            df.loc[:, var] = func(df.loc[:, var])
+        return df
+
+    def _flagvals_to_mask(self, df):
+        """Mask is True if not good data value."""
+        for flg, (_, goodval) in self._flags.items():
+            df.loc[:, flg] = (df.loc[:, flg] != goodval)
+        return df
+
+
+class HFData(object):
+    def __init__(self, dataframe):
+        self.dataframe = dataframe
+        self._already_corrected_external = False
+
     def __getitem__(self, name):
         """Column-wise get without specifying dataframe attribute"""
         return self.dataframe.loc[:, name]
@@ -128,68 +195,6 @@ class HFData(object):
     def __setitem__(self, name, value):
         """Column-wise set without specifying dataframe attribute"""
         self.dataframe.loc[:, name] = value
-
-    def read(self, fname, **kwargs):
-        """Read high frequency eddy covariance data into dataframe.
-
-        Parameters
-        ----------
-        fname : str
-            Filepath/filename or dataframe.
-        **kwargs
-            With a 'csv' `datasource`, kwargs is passed to
-            pandas.read_csv_. Will be merged with/overwrite any kwargs
-            passed in the constructor. Should *not* include the
-            following keys: `usecols`, `names`, `converters`,
-            `index_col`.
-
-        """
-        try:
-            if self._datasource.strip().lower() == 'csv':
-                self._read_csv(fname, **kwargs)
-            elif self._datasource.strip().lower() in ('tob', 'tob1'):
-                self._read_tob1(fname)
-            elif self._datasource.strip().lower() == 'pd.df':
-                self.dataframe = fname.iloc[:, self._usecols]
-                self._format_df()
-            else:
-                raise HFDataReadError('Unknown file type')
-        except Exception as err:
-            raise HFDataReadError(err.args[0])
-
-        self._already_corrected_external = False
-
-    def _read_csv(self, fname, **kwargs):
-        kws = dict(
-            usecols=self._usecols,
-            header=None,
-            **{**self._read_kws, **kwargs}
-        )
-        self.dataframe = pd.read_csv(fname, **kws)
-        if isinstance(self._time_col, int):
-            self.dataframe['Datetime'] = (
-                pd.to_datetime(self.dataframe.iloc[:, self._time_col])
-            )
-            self.dataframe = self.dataframe.set_index('Datetime')
-        self._format_df()
-
-    def _read_tob1(self, tobfile):
-        self.dataframe = pd.DataFrame(util.tob1_to_array(tobfile))
-        secs = self.dataframe.loc[:, 'SECONDS'] 
-        secs += 10**-9 * self.dataframe.loc[:, 'NANOSECONDS']
-        self.dataframe['Datetime'] = pd.to_datetime(
-            secs,
-            unit='s',
-            origin='1990-01-01',
-        )
-        self.dataframe = self.dataframe.set_index('Datetime')
-        self.dataframe = self.dataframe.iloc[:, self._usecols]
-        self._format_df()
-
-    def _format_df(self):
-        self.dataframe.columns = self._names
-        for k, func in self._converters.items():
-            self.dataframe.loc[:, k] = func(self.dataframe.loc[:, k])
 
     def cleanse(self, bounds=None, rd_tol=0.5, ad_tol=1024):
         """Apply some data QC/QA, remove bad data.
@@ -223,22 +228,19 @@ class HFData(object):
             than `rd_tol`, and/or is less than `ad_tol` records long.
 
         """
+        bounds = bounds or {}
         data = self.dataframe
 
-        # 1D bool mask is True if any `data` field is missing (=nan)
-        mask = data.loc[:, HFData.var_names].isnull().any(axis=1).values
-
-        # Also mask records with out-of-bounds or flagged data
-        bounds = bounds or {}
+        # 1D mask is True for a row if any `data` are nan, any flag is
+        # True, or any data are out-of-bounds
+        mask = data.iloc[:, :7].isnull().any(axis=1)
+        mask |= data.iloc[:, 7:].any(axis=1)
         for var, (low, high) in bounds.items():
-            mask[(data[var] < low) | (data[var] > high)] = True
-        if self._flags:
-            for flgname, val in self._flags.items():
-                mask[data[flgname] != val[1]] = True
+            mask |= (data[var] < low) | (data[var] > high)
 
         # Find longest span of valid (unmasked) data
-        dummy_ma = np.ma.array(np.zeros([data.shape[0], ]), mask=mask)
-        unmasked_slices = np.ma.clump_unmasked(dummy_ma) or [slice(0, 0), ]
+        marray = np.ma.array(np.zeros([data.shape[0], ]), mask=mask.values)
+        unmasked_slices = np.ma.clump_unmasked(marray) or [slice(0, 0), ]
         max_indx = np.argmax([s.stop - s.start for s in unmasked_slices])
         max_slice = unmasked_slices[max_indx]
         len_max_slice = max_slice.stop - max_slice.start
@@ -251,11 +253,6 @@ class HFData(object):
 
         self.dataframe = data.iloc[max_slice]
         return
-
-    def truncate(self):
-        """Truncate dataframe length to largest possible power of 2."""
-        truncate_len = 2 ** int(np.log2(self.dataframe.shape[0]))
-        self.dataframe = self.dataframe.iloc[:truncate_len]
 
     def correct_external(self):
         """Adjust q and c data series to correct for external effects.
@@ -297,7 +294,7 @@ class HFData(object):
             :class:`~fluxpart.containers.HFSummary`
 
         """
-        hfs = util.stats2(self.dataframe, HFData.var_names)
+        hfs = util.stats2(self.dataframe, HFDataReader.var_names)
         Pvap = hfs.ave_q * GC.vapor * hfs.ave_T
         rho_dryair = (hfs.ave_P - Pvap) / GC.dryair / hfs.ave_T
         rho_totair = rho_dryair + hfs.ave_q
@@ -323,3 +320,13 @@ class HFData(object):
             cov_w_T=hfs.cov_w_T,
             N=self.dataframe.shape[0],
             )
+
+    def truncate_pow2(self):
+        """Truncate dataframe length to largest possible power of 2."""
+        truncate_len = 2 ** int(np.log2(self.dataframe.shape[0]))
+        self.dataframe = self.dataframe.iloc[:truncate_len]
+
+
+def get_hfdata(fname, *args, **kws):
+    """Convenience function for reading HFData."""
+    return HFData(HFDataReader(*args, **kws).read(fname))

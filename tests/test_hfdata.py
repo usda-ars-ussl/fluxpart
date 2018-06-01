@@ -5,7 +5,7 @@ import numpy as np
 import numpy.testing as npt
 import pandas as pd
 
-from fluxpart.hfdata import HFData
+from fluxpart.hfdata import HFData, HFDataReader
 from fluxpart.fluxpart import _converter_func
 
 TESTDIR = os.path.dirname(os.path.realpath(__file__))
@@ -26,8 +26,8 @@ def test_hfdata_read_csv():
             },
     )
 
-    data = HFData(cols=cols, flags={'ex_flag': (9, 0)}, **kws)
-    data.read(fname)
+    reader = HFDataReader(cols=cols, flags={'ex_flag': (9, 0)}, **kws)
+    data = HFData(reader.read(fname))
     assert_1300_read(data)
 
     kws = dict(
@@ -41,8 +41,8 @@ def test_hfdata_read_csv():
             },
     )
 
-    data = HFData(cols=cols, flags={'ex_flag': (9, 0)}, **kws)
-    data.read(fname)
+    reader = HFDataReader(cols=cols, flags={'ex_flag': (9, 0)}, **kws)
+    data = HFData(reader.read(fname))
     assert_1300_read(data)
     assert(data.dataframe.index[0] == pd.to_datetime('2012-06-07 13:00:00.05'))
     assert(data.dataframe.index[-1] == pd.to_datetime('2012-06-07 13:15:00'))
@@ -53,8 +53,8 @@ def test_hfdata_read_csv():
             names=['u', 'v', 'w', 'c', 'q', 'T', 'P', 'ex_flag'],
             skiprows=4)
 
-    data = HFData(
-            datasource='pd.df',
+    reader = HFDataReader(
+            filetype='pd.df',
             flags={'ex_flag': (7, 0)},
             cols=[0, 1, 2, 3, 4, 5, 6],
             converters={
@@ -64,12 +64,12 @@ def test_hfdata_read_csv():
                 'P': _converter_func(1e3, 0),
             },
            )
-    data.read(df)
+    data = HFData(reader.read(df))
     assert_1300_read(data)
 
     fname = os.path.join(DATADIR, 'testing.tob')
     kws = dict(
-              datasource='tob1',
+              filetype='tob1',
               cols=(3, 4, 5, 6, 7, 8, 9),
               converters={
                   'T': _converter_func(1, 273.15),
@@ -79,8 +79,8 @@ def test_hfdata_read_csv():
               }
           )
 
-    data = HFData(**kws)
-    data._read_tob1(fname)
+    reader = HFDataReader(**kws)
+    data = HFData(reader.read(fname))
     assert_tob_read(data)
 
     toy_data = (
@@ -100,7 +100,7 @@ def test_hfdata_read_csv():
         'asdf,11,-2,3,4,5,6,7,9,0\n'
     )
 
-    toy = HFData(
+    reader = HFDataReader(
         cols=(1, 2, 3, 6, 7, 4, 5),
         comment='#',
         skiprows=1,
@@ -109,7 +109,7 @@ def test_hfdata_read_csv():
         flags={'ex_flag': (9, 0)},
         delimiter=",",
         )
-    toy.read(io.BytesIO(toy_data.encode()))
+    toy = HFData(reader.read(io.BytesIO(toy_data.encode())))
     toy.cleanse(
         rd_tol=0.1,
         ad_tol=2,

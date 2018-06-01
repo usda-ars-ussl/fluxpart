@@ -3,17 +3,11 @@ import numpy as np
 
 from .__version__ import __version__
 from .wue import water_use_efficiency, WUEError
-from .hfdata import HFData, HFDataReadError, TooFewDataError
+from .hfdata import get_hfdata, HFDataReadError, TooFewDataError
 from .partition import fvspart_progressive
 from .util import vapor_press_deficit
-from .containers import (
-    AllFluxes,
-    FVSPResult,
-    HFSummary,
-    RootSoln,
-    WQCData,
-    WUE,
-)
+from .containers import AllFluxes, WUE
+
 
 WUE_OPTIONS = dict(
     ci_mod='const_ratio',
@@ -24,7 +18,7 @@ WUE_OPTIONS = dict(
 )
 
 HFD_FORMAT = dict(
-    datasource='csv',
+    filetype='csv',
     cols=(2, 3, 4, 5, 6, 7, 8),
     skiprows=4,
     sep=',',
@@ -124,7 +118,7 @@ def flux_partition(
 
     Other Parameters
     ----------------
-    hfd_format['datasource'] : {'csv', 'tob1', 'pd.df'}
+    hfd_format['filetype'] : {'csv', 'tob1', 'pd.df'}
         'csv' = delimited text file (default); 'tob1' = Campbell
         Scientific binary format file; 'pd.df' = pandas dataframe.
     hfd_format['cols'] : 7*(int,)
@@ -153,7 +147,7 @@ def flux_partition(
         containing the flag (0-based indexing), and badval is the value
         of the flag that indicates a bad data record. Default is None.
     hfd_format[ other keys ]
-        When `hfd_format['datasource']` is 'csv', all other key:value
+        When `hfd_format['filetype']` is 'csv', all other key:value
         pairs in `hfd_format` are passed as keyword arguments to
         pandas.read_csv_ (where the file is read). These keywords may be
         required to specify the details of the formatting of the
@@ -236,8 +230,12 @@ def flux_partition(
         converters['T'] = _converter_func(1., 273.15)
 
     try:
-        hfdat = HFData(cols=usecols, converters=converters, **hfd_format)
-        hfdat.read(fname)
+        hfdat = get_hfdata(
+                fname,
+                cols=usecols,
+                converters=converters,
+                **hfd_format
+        )
     except HFDataReadError as err:
         return FluxpartResult(dataread=False, mssg=err.args[0])
 
@@ -251,7 +249,7 @@ def flux_partition(
     except TooFewDataError as err:
         return FluxpartResult(dataread=True, mssg=err.args[0])
 
-    hfdat.truncate()
+    hfdat.truncate_pow2()
     if hfd_options['correcting_external']:
         hfdat.correct_external()
     hfsum = hfdat.summarize()

@@ -5,12 +5,7 @@ from types import SimpleNamespace
 import numpy as np
 
 import fluxpart.util as util
-from .containers import (
-    FVSPResult,
-    MassFluxes,
-    RootSoln,
-    WQCData,
-)
+from .containers import FVSPResult, MassFluxes, RootSoln, WQCData
 
 
 def fvspart_progressive(w, q, c, wue, adjust_fluxes=True):
@@ -60,8 +55,8 @@ def fvspart_progressive(w, q, c, wue, adjust_fluxes=True):
         if fvsp.rootsoln.isvalid:
             if adjust_fluxes:
                 fvsp.fluxes = _adjust_fluxes(fvsp.fluxes, wue, wq_tot, wc_tot)
-                fvsp.valid_partition, fvsp.mssg = (
-                    _isvalid_partition(fvsp.fluxes)
+                fvsp.valid_partition, fvsp.mssg = _isvalid_partition(
+                    fvsp.fluxes
                 )
             if fvsp.valid_partition:
                 break
@@ -180,21 +175,21 @@ def findroot(wqc_data, wue):
     wue = wue * 1e3
 
     sd_q, sd_c = math.sqrt(var_q), math.sqrt(var_c)
-    num0 = (corr_qc**2 - 1) * var_c * var_q * wue**2
-    num1 = -2 * corr_qc * sd_c * sd_q * wq * wc
-    num1 += var_c * wq**2 + var_q * wc**2
 
-    numer = -num0 * num1
-    denom = (
-        (-corr_qc * sd_c * sd_q * (wc + wq * wue) + var_c * wq
-         + var_q * wc * wue)**2
-    )
+    numer = -2 * corr_qc * sd_c * sd_q * wq * wc
+    numer += var_c * wq ** 2 + var_q * wc ** 2
+    numer *= -(corr_qc ** 2 - 1) * var_c * var_q * wue ** 2
+    denom = -corr_qc * sd_c * sd_q * (wc + wq * wue)
+    denom += var_c * wq + var_q * wc * wue
+    denom = denom ** 2
+
     var_cp = numer / denom
 
-    numer = - (corr_qc**2 - 1) * var_c * var_q * (wc - wq * wue)**2
-    den0 = -2 * corr_qc * sd_c * sd_q * wue + var_c + var_q * wue**2
-    den1 = -2 * corr_qc * sd_c * sd_q * wc * wq + var_c * wq**2 + var_q * wc**2
-    denom = den0 * den1
+    numer = -(corr_qc ** 2 - 1) * var_c * var_q * (wc - wq * wue) ** 2
+    denom = -2 * corr_qc * sd_c * sd_q * wc * wq
+    denom += var_c * wq ** 2 + var_q * wc ** 2
+    denom *= -2 * corr_qc * sd_c * sd_q * wue + var_c + var_q * wue ** 2
+
     rho_sq = numer / denom
     corr_cp_cr = -math.sqrt(rho_sq)
 
@@ -204,9 +199,9 @@ def findroot(wqc_data, wue):
     sig_cr = np.nan
     if valid_root:
         valid_root = False
-        valid_mssg = 'trial root did not satisfy equations'
-        scaled_wqc_data = (
-            WQCData(wq=wq, wc=wc, var_q=var_q, var_c=var_c, corr_qc=corr_qc)
+        valid_mssg = "Trial root did not satisfy equations"
+        scaled_wqc_data = WQCData(
+            wq=wq, wc=wc, var_q=var_q, var_c=var_c, corr_qc=corr_qc
         )
 
         tol = 1e-12
@@ -225,27 +220,22 @@ def findroot(wqc_data, wue):
 
         if valid_root:
             wqc_data = SimpleNamespace(
-                var_q=var_q,
-                var_c=var_c,
-                wq=wq,
-                wc=wc,
-                corr_qc=corr_qc,
+                var_q=var_q, var_c=var_c, wq=wq, wc=wc, corr_qc=corr_qc
             )
 
             wcr_ov_wcp = flux_ratio(
-                var_cp, corr_cp_cr, wqc_data, 'co2', co2soln_id)
+                var_cp, corr_cp_cr, wqc_data, "co2", co2soln_id
+            )
             sig_cr = wcr_ov_wcp * math.sqrt(var_cp) / corr_cp_cr
 
     # re-scale dimensional variables to SI units
-    return (
-        RootSoln(
-            corr_cp_cr=corr_cp_cr,
-            var_cp=var_cp * 1e-12,
-            sig_cr=sig_cr * 1e-6,
-            co2soln_id=co2soln_id,
-            isvalid=valid_root,
-            mssg=valid_mssg,
-        )
+    return RootSoln(
+        corr_cp_cr=corr_cp_cr,
+        var_cp=var_cp * 1e-12,
+        sig_cr=sig_cr * 1e-6,
+        co2soln_id=co2soln_id,
+        isvalid=valid_root,
+        mssg=valid_mssg,
     )
 
 
@@ -281,37 +271,32 @@ def flux_ratio(var_cp, corr_cp_cr, wqc_data, ftype, farg):
     which is required/assumed by the physical model in [SS08]_.
 
     """
-    if ftype == 'co2' or ftype == 'CO2':
+    if ftype == "co2" or ftype == "CO2":
         sign = 1 if farg == 1 else -1
         num = wqc_data.var_c
-    elif ftype == 'h2o' or ftype == 'H2O':
+    elif ftype == "h2o" or ftype == "H2O":
         sign = 1
-        num = farg**2 * wqc_data.var_q
+        num = farg ** 2 * wqc_data.var_q
     else:
         raise ValueError("ftype must be 'co2' or 'h2o'")
-    disc = 1 - 1 / corr_cp_cr**2 + num / var_cp / corr_cp_cr**2
+    disc = 1 - 1 / corr_cp_cr ** 2 + num / var_cp / corr_cp_cr ** 2
     if disc < 0:
         fratio = np.nan
     else:
-        fratio = corr_cp_cr**2 * (sign * math.sqrt(disc) - 1)
+        fratio = corr_cp_cr ** 2 * (sign * math.sqrt(disc) - 1)
     return fratio
 
 
 def _mass_fluxes(var_cp, corr_cp_cr, wqc_data, wue, co2soln_id):
     """Calculate flux components for given (var_cp, corr_cp_cr) pair."""
-    wcr_ov_wcp = flux_ratio(var_cp, corr_cp_cr, wqc_data, 'co2', co2soln_id)
+    wcr_ov_wcp = flux_ratio(var_cp, corr_cp_cr, wqc_data, "co2", co2soln_id)
     # TODO: handle wcr_ov_wcp ~ -1
     wcp = wqc_data.wc / (wcr_ov_wcp + 1)
     wcr = wqc_data.wc - wcp
     wqt = wcp / wue
     wqe = wqc_data.wq - wqt
     return MassFluxes(
-        Fq=wqc_data.wq,
-        Fqt=wqt,
-        Fqe=wqe,
-        Fc=wqc_data.wc,
-        Fcp=wcp,
-        Fcr=wcr,
+        Fq=wqc_data.wq, Fqt=wqt, Fqe=wqe, Fc=wqc_data.wc, Fcp=wcp, Fcr=wcr
     )
 
 
@@ -322,8 +307,8 @@ def _residual_func(x, wqc_data, wue, co2soln_id):
 
     """
     corr_cp_cr, var_cp = x
-    wcr_ov_wcp = flux_ratio(var_cp, corr_cp_cr, wqc_data, 'co2', co2soln_id)
-    wqe_ov_wqt = flux_ratio(var_cp, corr_cp_cr, wqc_data, 'h2o', wue)
+    wcr_ov_wcp = flux_ratio(var_cp, corr_cp_cr, wqc_data, "co2", co2soln_id)
+    wqe_ov_wqt = flux_ratio(var_cp, corr_cp_cr, wqc_data, "h2o", wue)
 
     # Eq. 7a
     lhs = wue * wqc_data.wq / wqc_data.wc * (wcr_ov_wcp + 1)
@@ -334,20 +319,20 @@ def _residual_func(x, wqc_data, wue, co2soln_id):
     lhs = wue * wqc_data.corr_qc
     lhs *= math.sqrt(wqc_data.var_c * wqc_data.var_q) / var_cp
     rhs = 1 + wqe_ov_wqt + wcr_ov_wcp
-    rhs += wqe_ov_wqt * wcr_ov_wcp / corr_cp_cr**2
+    rhs += wqe_ov_wqt * wcr_ov_wcp / corr_cp_cr ** 2
     resid2 = lhs - rhs
     return [resid1, resid2]
 
 
 def _isvalid_root(corr_cp_cr, var_cp):
     isvalid = True
-    mssg = ''
+    mssg = ""
     if var_cp <= 0:
         isvalid = False
-        mssg += 'var_cp <= 0; '
+        mssg += "var_cp <= 0; "
     if not -1 < corr_cp_cr < 0:
         isvalid = False
-        mssg += 'corr_cp_cr <-1 OR >0; '
+        mssg += "corr_cp_cr <-1 OR >0; "
     # TODO: could add other bound checks?
     return isvalid, mssg
 
@@ -356,19 +341,19 @@ def _isvalid_partition(flux_components):
     """Test if partitioned flux directions (signs) are valid."""
     fc = flux_components
     isvalid = True
-    mssg = ''
+    mssg = ""
     if fc.Fqt <= 0:
         isvalid = False
-        mssg += 'Fqt <= 0; '
+        mssg += "Fqt <= 0; "
     if fc.Fqe <= 0:
         isvalid = False
-        mssg += 'Fqe <= 0; '
+        mssg += "Fqe <= 0; "
     if fc.Fcp >= 0:
         isvalid = False
-        mssg += 'Fcp >= 0; '
+        mssg += "Fcp >= 0; "
     if fc.Fcr <= 0:
         isvalid = False
-        mssg += 'Fcr <= 0; '
+        mssg += "Fcr <= 0; "
     return isvalid, mssg
 
 
@@ -433,7 +418,7 @@ def _progressive_lowcut(wind, vapor, co2):
     length is a power of 2.
 
     """
-    max_pow2_len = 2**int(np.log2(np.asarray(co2).shape[0]))
+    max_pow2_len = 2 ** int(np.log2(np.asarray(co2).shape[0]))
     trunc_w = np.asarray(wind)[:max_pow2_len]
     trunc_q = np.asarray(vapor)[:max_pow2_len]
     trunc_c = np.asarray(co2)[:max_pow2_len]

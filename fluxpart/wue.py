@@ -8,17 +8,13 @@ from .util import sat_vapor_press, vapor_press_deficit
 
 
 _C3_DEFAULTS = dict(
-    const_ppm=280.,       # ppm
+    const_ppm=280.,  # ppm
     const_ratio=0.7,
     linear=(1, 1.6e-4),
-    sqrt=22e-9,           # kg-co2 / m^3 / Pa
-    )
+    sqrt=22e-9,  # kg-co2 / m^3 / Pa
+)
 
-_C4_DEFAULTS = dict(
-   const_ppm=130.,
-   const_ratio=0.44,
-   linear=(1, 2.7e-4),
-   )
+_C4_DEFAULTS = dict(const_ppm=130., const_ratio=0.44, linear=(1, 2.7e-4))
 
 CI_DEFAULT_PARAMS = dict(C3=_C3_DEFAULTS, C4=_C4_DEFAULTS)
 
@@ -32,9 +28,17 @@ class WUEError(Error):
         self.message = message
 
 
-def water_use_efficiency(hfs, meas_ht, canopy_ht, ppath, ci_mod,
-                         ci_mod_param=None, leaf_temper=None,
-                         leaf_temper_corr=0, diff_ratio=1.6):
+def water_use_efficiency(
+    hfs,
+    meas_ht,
+    canopy_ht,
+    ppath,
+    ci_mod,
+    ci_mod_param=None,
+    leaf_temper=None,
+    leaf_temper_corr=0,
+    diff_ratio=1.6,
+):
 
     """Estimate leaf-level water use efficiency.
 
@@ -144,7 +148,7 @@ def water_use_efficiency(hfs, meas_ht, canopy_ht, ppath, ci_mod,
 
     """
     if canopy_ht > meas_ht:
-        raise WUEError('canopy_ht is less than meas_ht')
+        raise WUEError("canopy_ht is less than meas_ht")
 
     # Assume zero-plane and roughness params for vapor and CO2 are the same.
     # d0 = Zero-plane displacement height (L), Eq. 5.2 of [CN98]
@@ -171,13 +175,13 @@ def water_use_efficiency(hfs, meas_ht, canopy_ht, ppath, ci_mod,
 
     # Ambient concentrations (kg/m^3)
     arg = (log((meas_ht - d0) / zv) - psi_v) / VON_KARMAN / hfs.ustar
-    ambient_h2o = (hfs.rho_vapor + hfs.cov_w_q * arg)
-    ambient_co2 = (hfs.rho_co2 + hfs.cov_w_c * arg)
+    ambient_h2o = hfs.rho_vapor + hfs.cov_w_q * arg
+    ambient_co2 = hfs.rho_co2 + hfs.cov_w_c * arg
 
     # Ambient vapor pressure deficit
     vpd = vapor_press_deficit(hfs.rho_vapor, hfs.T)
     if vpd < 0:
-        raise WUEError('Negative vapor pressure deficit {}'.format(vpd))
+        raise WUEError("Negative vapor pressure deficit {}".format(vpd))
 
     # Intercellular saturation vapor pressure `esat`
     leaf_T = (leaf_temper or hfs.T) + leaf_temper_corr
@@ -192,26 +196,27 @@ def water_use_efficiency(hfs, meas_ht, canopy_ht, ppath, ci_mod,
         ci_mod = (ci_mod, None)
 
     ci_mod_name = ci_mod[0]
-    if ci_mod_name == 'sqrt' and ppath == 'C4':
+    if ci_mod_name == "sqrt" and ppath == "C4":
         err = "Combination of 'sqrt' ci model and 'C4' ppath not enabled"
         raise WUEError(err)
     ci_mod_params = ci_mod[1] or CI_DEFAULT_PARAMS[ppath][ci_mod_name]
 
     ci_dispatch = {
-        'const_ppm': _ci_const_ppm(hfs.P, leaf_T, Rgas.co2),
-        'const_ratio': _cica_const_ratio(ambient_co2),
-        'linear': _cica_linear(ambient_co2, vpd),
-        'sqrt': _cica_sqrt(ambient_co2, vpd)}
+        "const_ppm": _ci_const_ppm(hfs.P, leaf_T, Rgas.co2),
+        "const_ratio": _cica_const_ratio(ambient_co2),
+        "linear": _cica_linear(ambient_co2, vpd),
+        "sqrt": _cica_sqrt(ambient_co2, vpd),
+    }
     inter_co2 = ci_dispatch[ci_mod_name](ci_mod_params)
 
     coef = 1. / diff_ratio
     wue = coef * (ambient_co2 - inter_co2) / (ambient_h2o - inter_h2o)
 
     if ambient_co2 <= inter_co2:
-        mssg = 'WUE estimate, ci={}, ca={}'.format(ambient_co2, inter_co2)
+        mssg = "WUE estimate, ci={}, ca={}".format(ambient_co2, inter_co2)
         raise WUEError(mssg)
     if ambient_h2o >= inter_h2o:
-        mssg = 'WUE estimate, qi={}, qa={}'.format(ambient_h2o, inter_h2o)
+        mssg = "WUE estimate, qi={}, qa={}".format(ambient_h2o, inter_h2o)
         raise WUEError(mssg)
 
     return WUE(
@@ -228,39 +233,47 @@ def water_use_efficiency(hfs, meas_ht, canopy_ht, ppath, ci_mod,
         ci_mod=ci_mod_name,
         ci_mod_param=ci_mod_params,
         diff_ratio=diff_ratio,
-        )
+    )
 
 
 def _ci_const_ppm(pressure, temperature, Rco2):
     """ci is a fixed ppm value."""
+
     def ci_func(ci_ppm):
         """Return ci = intercellular CO2 concentration, kg/m^3."""
         return ci_ppm * 1e-6 * pressure / Rco2 / temperature
+
     return ci_func
 
 
 def _cica_const_ratio(ambient_co2):
     """ci/ca is constant."""
+
     def ci_func(const):
         """Return ci = intercellular CO2 concentration, kg/m^3."""
         return const * ambient_co2
+
     return ci_func
 
 
 def _cica_linear(ambient_co2, vpd):
     """ci/ca is a decreasing linear function of vapor pressure deficit."""
+
     def ci_func(linear_params):
         """Return ci = intercellular CO2 concentration, kg/m^3."""
         # b is unitless with a value of ~1, and m (> 0) has units of Pa^-1
         b, m = linear_params
         return ambient_co2 * (b - m * vpd)
+
     return ci_func
 
 
 def _cica_sqrt(ambient_co2, vpd):
     """ci/ca is a function of sqrt(`vpd`/ca)."""
+
     def ci_func(lambd):
         """Return ci = intercellular CO2 concentration, kg/m^3."""
         # lambd has units of kg-co2 / m^3 / Pa
         return ambient_co2 * (1 - sqrt(1.6 * lambd * vpd / ambient_co2))
+
     return ci_func

@@ -18,6 +18,7 @@ class MassFluxes(object):
         Total, photosynthesis, and respiration CO2 fluxes, kg/m^2/s
 
     """
+
     Fq = attr.ib(default=np.nan)
     Fqt = attr.ib(default=np.nan)
     Fqe = attr.ib(default=np.nan)
@@ -30,15 +31,15 @@ class MassFluxes(object):
         fqs = [1e3 * self.Fq, 1e3 * self.Fqt, 1e3 * self.Fqe]
         fcs = [1e6 * self.Fc, 1e6 * self.Fcp, 1e6 * self.Fcr]
         return (
-            'MassFluxes(\n'
-            '    Fq = {:.4} g/m^2/s,\n'
-            '    Fqt = {:.4} g/m^2/s,\n'
-            '    Fqe = {:.4} g/m^2/s,\n'
-            '    Fc = {:.4} mg/m^2/s,\n'
-            '    Fcp = {:.4} mg/m^2/s,\n'
-            '    Fcr = {:.4} mg/m^2/s)'
-            ''.format(*(fqs + fcs))
-            )
+            "MassFluxes(\n"
+            "    Fq = {:.4} g/m^2/s,\n"
+            "    Fqt = {:.4} g/m^2/s,\n"
+            "    Fqe = {:.4} g/m^2/s,\n"
+            "    Fc = {:.4} mg/m^2/s,\n"
+            "    Fcp = {:.4} mg/m^2/s,\n"
+            "    Fcr = {:.4} mg/m^2/s)"
+            "".format(*(fqs + fcs))
+        )
 
 
 @attr.s
@@ -55,6 +56,7 @@ class AllFluxes(object):
         Temperature, K
 
     """
+
     Fq = attr.ib(default=np.nan)
     Fqt = attr.ib(default=np.nan)
     Fqe = attr.ib(default=np.nan)
@@ -89,37 +91,30 @@ class AllFluxes(object):
     def __str__(self):
         # For some fields, print common units instead of SI
         row = "{:35}{}"
-        return (
-            '~~~~~~\n'
-            'Fluxes\n' +
-            '~~~~~~\n' +
-            row.format(
-                'Fq = {:.4} g/m^2/s'.format(1e3 * self.Fq),
-                'Fc = {:.4} mg/m^2/s\n'.format(1e6 * self.Fc)
-            ) +
-            row.format(
-                'Fqt = {:.4} g/m^2/s'.format(1e3 * self.Fqt),
-                'Fcp = {:.4} mg/m^2/s\n'.format(1e6 * self.Fcp)
-            ) +
-            row.format(
-                'Fqe = {:.4} g/m^2/s'.format(1e3 * self.Fqe),
-                'Fcr = {:.4} mg/m^2/s\n\n'.format(1e6 * self.Fcr)
-            ) +
-            row.format(
-                'Fq_mol = {:.4} mmol/m^2/s'.format(1e3 * self.Fq_mol),
-                'Fc_mol = {:.4} umol/m^2/s\n'.format(1e6 * self.Fc_mol)
-            ) +
-            row.format(
-                'Fqt_mol = {:.4} mmol/m^2/s'.format(1e3 * self.Fqt_mol),
-                'Fcp_mol = {:.4} umol/m^2/s\n'.format(1e6 * self.Fcp_mol)
-            ) +
-            row.format(
-                'Fqe_mol = {:.4} mmol/m^2/s'.format(1e3 * self.Fqe_mol),
-                'Fcr_mol = {:.4} umol/m^2/s\n\n'.format(1e6 * self.Fcr_mol)
-            ) +
-            'LE  = {:.4} W/m^2\n'.format(self.LE) +
-            'LEt = {:.4} W/m^2\n'.format(self.LEt) +
-            'LEe = {:.4} W/m^2)'.format(self.LEe)
+        return "~~~~~~\n" "Fluxes\n" + "~~~~~~\n" + row.format(
+            "Fq = {:.4} g/m^2/s".format(1e3 * self.Fq),
+            "Fc = {:.4} mg/m^2/s\n".format(1e6 * self.Fc),
+        ) + row.format(
+            "Fqt = {:.4} g/m^2/s".format(1e3 * self.Fqt),
+            "Fcp = {:.4} mg/m^2/s\n".format(1e6 * self.Fcp),
+        ) + row.format(
+            "Fqe = {:.4} g/m^2/s".format(1e3 * self.Fqe),
+            "Fcr = {:.4} mg/m^2/s\n\n".format(1e6 * self.Fcr),
+        ) + row.format(
+            "Fq_mol = {:.4} mmol/m^2/s".format(1e3 * self.Fq_mol),
+            "Fc_mol = {:.4} umol/m^2/s\n".format(1e6 * self.Fc_mol),
+        ) + row.format(
+            "Fqt_mol = {:.4} mmol/m^2/s".format(1e3 * self.Fqt_mol),
+            "Fcp_mol = {:.4} umol/m^2/s\n".format(1e6 * self.Fcp_mol),
+        ) + row.format(
+            "Fqe_mol = {:.4} mmol/m^2/s".format(1e3 * self.Fqe_mol),
+            "Fcr_mol = {:.4} umol/m^2/s\n\n".format(1e6 * self.Fcr_mol),
+        ) + "LE  = {:.4} W/m^2\n".format(
+            self.LE
+        ) + "LEt = {:.4} W/m^2\n".format(
+            self.LEt
+        ) + "LEe = {:.4} W/m^2)".format(
+            self.LEe
         )
 
 
@@ -139,6 +134,7 @@ class FVSPResult(object):
          first number is 1, the maximum level of filtering was applied.
 
     """
+
     wqc_data = attr.ib(default=None)
     rootsoln = attr.ib(default=None)
     fluxes = attr.ib(default=None)
@@ -148,17 +144,17 @@ class FVSPResult(object):
 
     def __str__(self):
         result = (
-            '----------------\n'
-            'FVS Partitioning\n'
-            '----------------\n'
-            f'valid_partition: {self.valid_partition}\n'
-            f'mssg: {self.mssg}\n'
+            "----------------\n"
+            "FVS Partitioning\n"
+            "----------------\n"
+            f"valid_partition: {self.valid_partition}\n"
+            f"mssg: {self.mssg}\n"
         )
         if self.fluxes is not None:
-            result += self.fluxes.__str__() + '\n'
+            result += self.fluxes.__str__() + "\n"
         if self.wqc_data is not None:
-            result += self.wqc_data.__str__() + '\n'
-        result += f'Wavelet filtering level: {self.wave_lvl}\n'
+            result += self.wqc_data.__str__() + "\n"
+        result += f"Wavelet filtering level: {self.wave_lvl}\n"
         if self.rootsoln is not None:
             result += self.rootsoln.__str__()
         return result
@@ -199,6 +195,7 @@ class HFSummary(object):
         Length of data series.
 
     """
+
     T = attr.ib(default=np.nan)
     P = attr.ib(default=np.nan)
     Pvap = attr.ib(default=np.nan)
@@ -232,27 +229,27 @@ class HFSummary(object):
         cov_w_c = 1e6 * self.cov_w_c
 
         return (
-            '---------------\n'
-            'HF Data Summary\n'
-            '---------------\n'
-            f'T = {T:.4} C\n'
-            f'P = {P:.4} kPa\n'
-            f'Pvap = {Pvap:.4} kPa\n'
-            f'ustar = {self.ustar:.4} m/s\n'
-            f'wind_w = {self.wind_w:.4} m/s\n'
-            f'var_w = {self.var_w:.4} (m/s)^2\n'
-            f'rho_vapor = {rho_vapor:.4} g/m^3\n'
-            f'rho_co2 = {rho_co2:.4} mg/m^3\n'
-            f'var_vapor = {var_vapor:.4} (g/m^3)^2\n'
-            f'var_co2 = {var_co2:.4} (mg/m^3)^2\n'
-            f'corr_q_c = {self.corr_q_c:.4}\n'
-            f'cov_w_q = {cov_w_q:.4} g/m^2/s\n'
-            f'H = {self.H:.4} W/m^2\n'
-            f'cov_w_c = {cov_w_c:.4} mg/m^2/s\n'
-            f'rho_dryair = {self.rho_dryair:.4} kg/m^3\n'
-            f'rho_totair = {self.rho_totair:.4} kg/m^3\n'
-            f'cov_w_T = {self.cov_w_T:.4} C m/s\n'
-            f'N = {self.N}'
+            "---------------\n"
+            "HF Data Summary\n"
+            "---------------\n"
+            f"T = {T:.4} C\n"
+            f"P = {P:.4} kPa\n"
+            f"Pvap = {Pvap:.4} kPa\n"
+            f"ustar = {self.ustar:.4} m/s\n"
+            f"wind_w = {self.wind_w:.4} m/s\n"
+            f"var_w = {self.var_w:.4} (m/s)^2\n"
+            f"rho_vapor = {rho_vapor:.4} g/m^3\n"
+            f"rho_co2 = {rho_co2:.4} mg/m^3\n"
+            f"var_vapor = {var_vapor:.4} (g/m^3)^2\n"
+            f"var_co2 = {var_co2:.4} (mg/m^3)^2\n"
+            f"corr_q_c = {self.corr_q_c:.4}\n"
+            f"cov_w_q = {cov_w_q:.4} g/m^2/s\n"
+            f"H = {self.H:.4} W/m^2\n"
+            f"cov_w_c = {cov_w_c:.4} mg/m^2/s\n"
+            f"rho_dryair = {self.rho_dryair:.4} kg/m^3\n"
+            f"rho_totair = {self.rho_totair:.4} kg/m^3\n"
+            f"cov_w_T = {self.cov_w_T:.4} C m/s\n"
+            f"N = {self.N}"
         )
 
 
@@ -282,6 +279,7 @@ class RootSoln(object):
         Possibly informative message if `isvalid` = False.
 
     """
+
     corr_cp_cr = attr.ib(default=np.nan)
     var_cp = attr.ib(default=np.nan)
     sig_cr = attr.ib(default=np.nan)
@@ -292,16 +290,16 @@ class RootSoln(object):
     def __str__(self):
         # For some fields, print common units instead of SI
         return (
-            '~~~~~~~~~~~~~\n'
-            'Root Solution\n'
-            '~~~~~~~~~~~~~\n'
-            + 'corr_cp_cr = {:.4}\n'.format(self.corr_cp_cr)
-            + 'var_cp = {:.4} (mg/m^3)^2\n'.format(1e12 * self.var_cp)
-            + 'sig_cr = {:.4} mg/m^3\n'.format(1e6 * self.sig_cr)
-            + 'co2soln_id = {}\n'.format(self.co2soln_id)
-            + 'isvalid = {}\n'.format(self.isvalid)
-            + 'mssg = {}'.format(self.mssg)
-            )
+            "~~~~~~~~~~~~~\n"
+            "Root Solution\n"
+            "~~~~~~~~~~~~~\n"
+            + "corr_cp_cr = {:.4}\n".format(self.corr_cp_cr)
+            + "var_cp = {:.4} (mg/m^3)^2\n".format(1e12 * self.var_cp)
+            + "sig_cr = {:.4} mg/m^3\n".format(1e6 * self.sig_cr)
+            + "co2soln_id = {}\n".format(self.co2soln_id)
+            + "isvalid = {}\n".format(self.isvalid)
+            + "mssg = {}".format(self.mssg)
+        )
 
 
 @attr.s
@@ -318,6 +316,7 @@ class WQCData(object):
         Mean vapor (`wq`) and CO2 (`wc`) fluxes, kg/m^2/s.
 
     """
+
     var_q = attr.ib(default=np.nan)
     var_c = attr.ib(default=np.nan)
     corr_qc = attr.ib(default=np.nan)
@@ -331,19 +330,19 @@ class WQCData(object):
         wq = 1e3 * self.wq
         wc = 1e6 * self.wc
         return (
-            '~~~~~~~~~~~~~~\n'
-            'Interval Stats\n'
-            '~~~~~~~~~~~~~~\n'
-            f'var_q = {var_q:.4} (g/m^3)^2\n'
-            f'var_c = {var_c:.4} (mg/m^3)^2\n'
-            f'corr_qc = {self.corr_qc:.4}\n'
-            f'<wq> = {wq:.4} g/m^2/s\n'
-            f'<wc> = {wc:.4} mg/m^2/s'
+            "~~~~~~~~~~~~~~\n"
+            "Interval Stats\n"
+            "~~~~~~~~~~~~~~\n"
+            f"var_q = {var_q:.4} (g/m^3)^2\n"
+            f"var_c = {var_c:.4} (mg/m^3)^2\n"
+            f"corr_qc = {self.corr_qc:.4}\n"
+            f"<wq> = {wq:.4} g/m^2/s\n"
+            f"<wc> = {wc:.4} mg/m^2/s"
         )
 
 
 @attr.s
-class WUE():
+class WUE:
     """Summary of leaf-level water use efficiency calculation.
 
     Attributes
@@ -372,6 +371,7 @@ class WUE():
         Eddy covariance measument height and plant canopy height, m.
 
     """
+
     wue = attr.ib(default=np.nan)
     inter_h2o = attr.ib(default=np.nan)
     inter_co2 = attr.ib(default=np.nan)
@@ -398,20 +398,20 @@ class WUE():
         leaf_temper = self.leaf_temper - 273.15
 
         return (
-            '--------------------\n'
-            'Water Use Efficiency\n'
-            '--------------------\n'
-            f'wue = {wue:.4} mg/g,\n'
-            f'inter_h2o = {inter_h2o:.4} g/m^3,\n'
-            f'inter_co2 = {inter_co2:.4} mg/m^3,\n'
-            f'ambient_h2o = {ambient_h2o:.4} g/m^3,\n'
-            f'ambient_co2 = {ambient_co2:.4} mg/m^3,\n'
-            f'vpd = {vpd:.4} kPa,\n'
-            f'ci_mod = {self.ci_mod},\n'
-            f'ci_mod_param = {self.ci_mod_param},\n'
-            f'leaf_temper = {leaf_temper:.4} C,\n'
-            f'ppath = {self.ppath},\n'
-            f'meas_ht = {self.meas_ht} m,\n'
-            f'canopy_ht = {self.canopy_ht} m,\n'
-            f'diff_ratio = {self.diff_ratio:.4}'
+            "--------------------\n"
+            "Water Use Efficiency\n"
+            "--------------------\n"
+            f"wue = {wue:.4} mg/g,\n"
+            f"inter_h2o = {inter_h2o:.4} g/m^3,\n"
+            f"inter_co2 = {inter_co2:.4} mg/m^3,\n"
+            f"ambient_h2o = {ambient_h2o:.4} g/m^3,\n"
+            f"ambient_co2 = {ambient_co2:.4} mg/m^3,\n"
+            f"vpd = {vpd:.4} kPa,\n"
+            f"ci_mod = {self.ci_mod},\n"
+            f"ci_mod_param = {self.ci_mod_param},\n"
+            f"leaf_temper = {leaf_temper:.4} C,\n"
+            f"ppath = {self.ppath},\n"
+            f"meas_ht = {self.meas_ht} m,\n"
+            f"canopy_ht = {self.canopy_ht} m,\n"
+            f"diff_ratio = {self.diff_ratio:.4}"
         )

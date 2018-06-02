@@ -10,7 +10,7 @@ from .containers import AllFluxes, WUE
 
 
 WUE_OPTIONS = dict(
-    ci_mod='const_ratio',
+    ci_mod="const_ratio",
     ci_mod_param=None,
     leaf_temper=None,
     leaf_temper_corr=0,
@@ -18,40 +18,38 @@ WUE_OPTIONS = dict(
 )
 
 HFD_FORMAT = dict(
-    filetype='csv',
+    filetype="csv",
     cols=(2, 3, 4, 5, 6, 7, 8),
     skiprows=4,
-    sep=',',
-    unit_convert={'q': 1e-3, 'c': 1e-6, 'P': 1e3},
-    temper_unit='C',
+    sep=",",
+    unit_convert={"q": 1e-3, "c": 1e-6, "P": 1e3},
+    temper_unit="C",
     flags=None,
 )
 
 HFD_OPTIONS = dict(
-    bounds={'c': (0, np.inf), 'q': (0, np.inf)},
+    bounds={"c": (0, np.inf), "q": (0, np.inf)},
     rd_tol=0.4,
     ad_tol=1024,
     ustar_tol=0.1,
     correcting_external=True,
 )
 
-PART_OPTIONS = dict(
-    adjust_fluxes=True,
-)
+PART_OPTIONS = dict(adjust_fluxes=True)
 
-_bad_ustar = 'ustar = {:.4} is less than ustar_tol = {:.4}'
-_bad_vpd = 'Vapor pressure deficit({} <= 0'
-_bad_qflux = 'Fq = cov(w,q) = {:.4} <= 0 is incompatible with fvs partitioning'
+_bad_ustar = "ustar = {:.4} is less than ustar_tol = {:.4}"
+_bad_vpd = "Vapor pressure deficit({} <= 0"
+_bad_qflux = "Fq = cov(w,q) = {:.4} <= 0 is incompatible with fvs partitioning"
 
 
 def flux_partition(
-        fname,
-        meas_wue=None,
-        hfd_format=None,
-        hfd_options=None,
-        wue_options=None,
-        part_options=None,
-        label=None,
+    fname,
+    meas_wue=None,
+    hfd_format=None,
+    hfd_options=None,
+    wue_options=None,
+    part_options=None,
+    label=None,
 ):
     """Partition CO2 & H2O fluxes into stomatal & nonstomatal components.
 
@@ -222,19 +220,16 @@ def flux_partition(
     wue_options = {**WUE_OPTIONS, **(wue_options or {})}
     part_options = {**PART_OPTIONS, **(part_options or {})}
 
-    usecols = np.array(hfd_format.pop('cols'), dtype=int).reshape(7,)
-    unit_convert = hfd_format.pop('unit_convert', {})
+    usecols = np.array(hfd_format.pop("cols"), dtype=int).reshape(7)
+    unit_convert = hfd_format.pop("unit_convert", {})
     converters = {k: _converter_func(v, 0.) for k, v in unit_convert.items()}
-    temper_unit = hfd_format.pop('temper_unit')
-    if temper_unit.upper() == 'C' or temper_unit.upper() == 'CELSIUS':
-        converters['T'] = _converter_func(1., 273.15)
+    temper_unit = hfd_format.pop("temper_unit")
+    if temper_unit.upper() == "C" or temper_unit.upper() == "CELSIUS":
+        converters["T"] = _converter_func(1., 273.15)
 
     try:
         hfdat = get_hfdata(
-                fname,
-                cols=usecols,
-                converters=converters,
-                **hfd_format
+            fname, cols=usecols, converters=converters, **hfd_format
         )
     except HFDataReadError as err:
         return FluxpartResult(dataread=False, mssg=err.args[0])
@@ -242,20 +237,18 @@ def flux_partition(
     # Early returns if data are not compatible with fvs partitioning
     try:
         hfdat.cleanse(
-            hfd_options['bounds'],
-            hfd_options['rd_tol'],
-            hfd_options['ad_tol'],
+            hfd_options["bounds"], hfd_options["rd_tol"], hfd_options["ad_tol"]
         )
     except TooFewDataError as err:
         return FluxpartResult(dataread=True, mssg=err.args[0])
 
     hfdat.truncate_pow2()
-    if hfd_options['correcting_external']:
+    if hfd_options["correcting_external"]:
         hfdat.correct_external()
     hfsum = hfdat.summarize()
 
-    if hfsum.ustar < hfd_options['ustar_tol']:
-        mssg = _bad_ustar.format(hfsum.ustar, hfd_options['ustar_tol'])
+    if hfsum.ustar < hfd_options["ustar_tol"]:
+        mssg = _bad_ustar.format(hfsum.ustar, hfd_options["ustar_tol"])
         return FluxpartResult(dataread=True, mssg=mssg, hfsummary=hfsum)
 
     vpd = vapor_press_deficit(hfsum.rho_vapor, hfsum.T)
@@ -273,21 +266,22 @@ def flux_partition(
             leaf_wue = water_use_efficiency(hfsum, **wue_options)
         except WUEError as err:
             return FluxpartResult(
-                    dataread=True, mssg=err.args[0], hfsummary=hfsum
+                dataread=True, mssg=err.args[0], hfsummary=hfsum
             )
 
     # Everything seems OK so compute partitioned fluxes
     fvsp = fvspart_progressive(
-               hfdat['w'].values,
-               hfdat['q'].values,
-               hfdat['c'].values,
-               leaf_wue.wue,
-               part_options['adjust_fluxes'],
+        hfdat["w"].values,
+        hfdat["q"].values,
+        hfdat["c"].values,
+        leaf_wue.wue,
+        part_options["adjust_fluxes"],
     )
 
     if fvsp.valid_partition:
         fvsp.fluxes = AllFluxes(
-                **attr.asdict(fvsp.fluxes), temper_kelvin=hfsum.T)
+            **attr.asdict(fvsp.fluxes), temper_kelvin=hfsum.T
+        )
     else:
         fvsp.fluxes = None
 
@@ -301,22 +295,23 @@ def flux_partition(
         fvsp_result=fvsp,
         hfsummary=hfsum,
         wue=leaf_wue,
-        )
+    )
 
 
 class FluxpartResult(object):
     """Fluxpart result."""
+
     def __init__(
-            self,
-            version=__version__,
-            dataread=False,
-            attempt_partition=False,
-            valid_partition=False,
-            mssg=None,
-            label=None,
-            hfsummary=None,
-            wue=None,
-            fvsp_result=None,
+        self,
+        version=__version__,
+        dataread=False,
+        attempt_partition=False,
+        valid_partition=False,
+        mssg=None,
+        label=None,
+        hfsummary=None,
+        wue=None,
+        fvsp_result=None,
     ):
         """Fluxpart result.
 
@@ -349,19 +344,19 @@ class FluxpartResult(object):
 
     def __str__(self):
         result = (
-            '===============\n'
-            'Fluxpart Result\n'
-            '===============\n'
-            f'version = {self.version}\n'
-            f'dataread = {self.dataread}\n'
-            f'attempt_partition = {self.attempt_partition}\n'
-            f'valid_partition = {self.valid_partition}\n'
-            f'mssg = {self.mssg}\n'
+            "===============\n"
+            "Fluxpart Result\n"
+            "===============\n"
+            f"version = {self.version}\n"
+            f"dataread = {self.dataread}\n"
+            f"attempt_partition = {self.attempt_partition}\n"
+            f"valid_partition = {self.valid_partition}\n"
+            f"mssg = {self.mssg}\n"
         )
         if self.fvsp_result is not None:
-            result += self.fvsp_result.__str__() + '\n'
+            result += self.fvsp_result.__str__() + "\n"
         if self.wue is not None:
-            result += self.wue.__str__() + '\n'
+            result += self.wue.__str__() + "\n"
         if self.hfsummary is not None:
             result += self.hfsummary.__str__()
         return result
@@ -369,8 +364,10 @@ class FluxpartResult(object):
 
 def _converter_func(slope, intercept):
     """Return a function for linear transform of data."""
+
     def func(val):
         return slope * val + intercept
+
     return func
 
 

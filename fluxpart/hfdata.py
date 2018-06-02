@@ -34,11 +34,12 @@ class HFDataReadError(Error):
 class TooFewDataError(Error):
     def __init__(self, data_frac, rd_tol, len_max_slice, ad_tol):
         self.message = (
-            'HF Data read but rejected because the longest continuous '
-            'run of valid data was too short on a relative (length '
-            'data / total length) = {:.4} < rd_tol = {:.4}) and/or '
-            'absolute basis (data length = {} < ad_tol = {})'
-            ''.format(data_frac, rd_tol, len_max_slice, ad_tol))
+            "HF Data read but rejected because the longest continuous "
+            "run of valid data was too short on a relative (length "
+            "data / total length) = {:.4} < rd_tol = {:.4}) and/or "
+            "absolute basis (data length = {} < ad_tol = {})"
+            "".format(data_frac, rd_tol, len_max_slice, ad_tol)
+        )
 
 
 class HFDataReader(object):
@@ -74,16 +75,17 @@ class HFDataReader(object):
         https://pandas.pydata.org/pandas-docs/stable/generated/pandas.read_csv.html
 
     """
-    var_names = ['u', 'v', 'w', 'c', 'q', 'T', 'P']
+
+    var_names = ["u", "v", "w", "c", "q", "T", "P"]
 
     def __init__(
-            self,
-            filetype='csv',
-            cols=(2, 3, 4, 5, 6, 7, 8),
-            time_col=None,
-            converters=None,
-            flags=None,
-            **kwargs
+        self,
+        filetype="csv",
+        cols=(2, 3, 4, 5, 6, 7, 8),
+        time_col=None,
+        converters=None,
+        flags=None,
+        **kwargs
     ):
         self._filetype = filetype
         self._cols = cols
@@ -96,8 +98,8 @@ class HFDataReader(object):
     def _namecols(self):
         namecols = dict(zip(HFDataReader.var_names, self._cols))
         namecols.update({k: v[0] for k, v in self._flags.items()})
-        if isinstance(self._time_col, int) and self._filetype == 'csv':
-            namecols['Datetime'] = self._time_col
+        if isinstance(self._time_col, int) and self._filetype == "csv":
+            namecols["Datetime"] = self._time_col
         return namecols
 
     @property
@@ -128,14 +130,14 @@ class HFDataReader(object):
         """
         try:
             filetype = self._filetype.strip().lower()
-            if filetype == 'csv':
+            if filetype == "csv":
                 dataframe = self._read_csv(fname, **kwargs)
-            elif filetype in ('tob', 'tob1'):
+            elif filetype in ("tob", "tob1"):
                 dataframe = self._read_tob1(fname)
-            elif filetype == 'pd.df':
+            elif filetype == "pd.df":
                 dataframe = self._read_df(fname)
             else:
-                raise HFDataReadError('Unknown file type')
+                raise HFDataReadError("Unknown file type")
         except Exception as err:
             raise HFDataReadError(err.args[0])
 
@@ -145,25 +147,25 @@ class HFDataReader(object):
 
     def _read_csv(self, csvfile, **kwargs):
         df = pd.read_csv(
-                csvfile,
-                usecols=self._usecols,
-                header=None,
-                **{**self._readcsv_kws, **kwargs}
+            csvfile,
+            usecols=self._usecols,
+            header=None,
+            **{**self._readcsv_kws, **kwargs}
         )
         df.columns = self._names
         if self._time_col is not None:
-            df['Datetime'] = pd.to_datetime(df.iloc[:, self._time_col])
-            df = df.set_index('Datetime')
+            df["Datetime"] = pd.to_datetime(df.iloc[:, self._time_col])
+            df = df.set_index("Datetime")
         return df
 
     def _read_tob1(self, tobfile):
         df = pd.DataFrame(util.tob1_to_array(tobfile))
-        df['Datetime'] = pd.to_datetime(
-            arg=df.loc[:, 'SECONDS'] + 10**-9 * df.loc[:, 'NANOSECONDS'],
-            unit='s',
-            origin='1990-01-01',
+        df["Datetime"] = pd.to_datetime(
+            arg=df.loc[:, "SECONDS"] + 10 ** -9 * df.loc[:, "NANOSECONDS"],
+            unit="s",
+            origin="1990-01-01",
         )
-        df = df.set_index('Datetime')
+        df = df.set_index("Datetime")
         return self._read_df(df)
 
     def _read_df(self, df):
@@ -179,7 +181,7 @@ class HFDataReader(object):
     def _flagvals_to_mask(self, df):
         """Mask is True if not good data value."""
         for flg, (_, goodval) in self._flags.items():
-            df.loc[:, flg] = (df.loc[:, flg] != goodval)
+            df.loc[:, flg] = df.loc[:, flg] != goodval
         return df
 
 
@@ -239,8 +241,8 @@ class HFData(object):
             mask |= (data[var] < low) | (data[var] > high)
 
         # Find longest span of valid (unmasked) data
-        marray = np.ma.array(np.zeros([data.shape[0], ]), mask=mask.values)
-        unmasked_slices = np.ma.clump_unmasked(marray) or [slice(0, 0), ]
+        marray = np.ma.array(np.zeros([data.shape[0]]), mask=mask.values)
+        unmasked_slices = np.ma.clump_unmasked(marray) or [slice(0, 0)]
         max_indx = np.argmax([s.stop - s.start for s in unmasked_slices])
         max_slice = unmasked_slices[max_indx]
         len_max_slice = max_slice.stop - max_slice.start
@@ -265,13 +267,13 @@ class HFData(object):
 
         if self._already_corrected_external:
             return
-        ave_vapor = self['q'].mean()
-        ave_co2 = self['c'].mean()
-        ave_T = self['T'].mean()
-        dev_vapor = self['q'] - ave_vapor
-        dev_T = self['T'] - ave_T
+        ave_vapor = self["q"].mean()
+        ave_co2 = self["c"].mean()
+        ave_T = self["T"].mean()
+        dev_vapor = self["q"] - ave_vapor
+        dev_T = self["T"] - ave_T
 
-        Pdryair = self['P'].mean() - ave_vapor * GC.vapor * ave_T
+        Pdryair = self["P"].mean() - ave_vapor * GC.vapor * ave_T
         rho_totair = ave_vapor + Pdryair / GC.dryair / ave_T
 
         specific_vapor = ave_vapor / rho_totair
@@ -280,8 +282,8 @@ class HFData(object):
         muq = mu * specific_vapor
         muc = mu * specific_co2
 
-        self['q'] += muq * dev_vapor + (1 + muq) * ave_vapor * dev_T / ave_T
-        self['c'] += muc * dev_vapor + (1 + muq) * ave_co2 * dev_T / ave_T
+        self["q"] += muq * dev_vapor + (1 + muq) * ave_vapor * dev_T / ave_T
+        self["c"] += muc * dev_vapor + (1 + muq) * ave_co2 * dev_T / ave_T
         self._already_corrected_external = True
         return
 
@@ -304,7 +306,7 @@ class HFData(object):
             T=hfs.ave_T,
             P=hfs.ave_P,
             Pvap=Pvap,
-            ustar=(hfs.cov_w_u**2 + hfs.cov_w_v**2)**0.25,
+            ustar=(hfs.cov_w_u ** 2 + hfs.cov_w_v ** 2) ** 0.25,
             wind_w=hfs.ave_w,
             var_w=hfs.var_w,
             rho_vapor=hfs.ave_q,
@@ -319,7 +321,7 @@ class HFData(object):
             rho_totair=rho_totair,
             cov_w_T=hfs.cov_w_T,
             N=self.dataframe.shape[0],
-            )
+        )
 
     def truncate_pow2(self):
         """Truncate dataframe length to largest possible power of 2."""

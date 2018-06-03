@@ -287,7 +287,6 @@ def flux_partition(
 
     return FluxpartResult(
         label=label,
-        version=__version__,
         dataread=True,
         attempt_partition=True,
         valid_partition=fvsp.valid_partition,
@@ -303,7 +302,6 @@ class FluxpartResult(object):
 
     def __init__(
         self,
-        version=__version__,
         dataread=False,
         attempt_partition=False,
         valid_partition=False,
@@ -317,8 +315,6 @@ class FluxpartResult(object):
 
         Parameters
         ----------
-        version : str
-            Fluxpart version
         dataread, attempt_partition, valid_partition : bool
             Indicates success or failure in reading high frequency data,
             attempting and obtaining a valid partioning solution.
@@ -332,7 +328,7 @@ class FluxpartResult(object):
         hfsummary : :class:`~fluxpart.containers.HFSummary`
 
         """
-        self.version = version
+        self.version = __version__
         self.dataread = dataread
         self.attempt_partition = attempt_partition
         self.valid_partition = valid_partition

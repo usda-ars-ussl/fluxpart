@@ -11,6 +11,9 @@ represent meteorological quantities (SI units)::
     P = total air pressure (Pa)
 
 """
+from glob import glob
+import os
+
 import math
 import numpy as np
 import pandas as pd
@@ -87,7 +90,7 @@ class HFDataReader(object):
         flags=None,
         **kwargs
     ):
-        self._filetype = filetype
+        self._filetype = filetype.strip().lower()
         self._cols = cols
         self._time_col = time_col
         self._converters = converters or {}
@@ -111,7 +114,21 @@ class HFDataReader(object):
     def _usecols(self):
         return [self._namecols[k] for k in self._names]
 
-    def read(self, fname, **kwargs):
+    def peektime(self, fname):
+        try:
+            if self._filetype == "csv":
+                df = self._read_csv(fname, nrows=1)
+            elif self._filetype in ("tob", "tob1"):
+                df = self._read_tob1(fname, count=5)
+            elif self._filetype == "pd.df":
+                df = fname
+            else:
+                raise HFDataReadError("Unknown file type")
+        except Exception as err:
+            raise HFDataReadError(err.args[0])
+        return df.index[0]
+
+    def read(self, fname, count=-1, **kwargs):
         """Read high frequency eddy covariance data into dataframe.
 
         Parameters
@@ -129,12 +146,11 @@ class HFDataReader(object):
 
         """
         try:
-            filetype = self._filetype.strip().lower()
-            if filetype == "csv":
+            if self._filetype == "csv":
                 dataframe = self._read_csv(fname, **kwargs)
-            elif filetype in ("tob", "tob1"):
-                dataframe = self._read_tob1(fname)
-            elif filetype == "pd.df":
+            elif self._filetype in ("tob", "tob1"):
+                dataframe = self._read_tob1(fname, count)
+            elif self._filetype == "pd.df":
                 dataframe = self._read_df(fname)
             else:
                 raise HFDataReadError("Unknown file type")
@@ -158,8 +174,8 @@ class HFDataReader(object):
             df = df.set_index("Datetime")
         return df
 
-    def _read_tob1(self, tobfile):
-        df = pd.DataFrame(util.tob1_to_array(tobfile))
+    def _read_tob1(self, tobfile, count=-1):
+        df = pd.DataFrame(util.tob1_to_array(tobfile, count))
         df["Datetime"] = pd.to_datetime(
             arg=df.loc[:, "SECONDS"] + 10 ** -9 * df.loc[:, "NANOSECONDS"],
             unit="s",
@@ -233,7 +249,7 @@ class HFData(object):
         bounds = bounds or {}
         data = self.dataframe
 
-        # 1D mask is True for a row if any `data` are nan, any flag is
+        # 1D mask is True for a row if any data are nan, any flag is
         # True, or any data are out-of-bounds
         mask = data.iloc[:, :7].isnull().any(axis=1)
         mask |= data.iloc[:, 7:].any(axis=1)
@@ -327,6 +343,107 @@ class HFData(object):
         """Truncate dataframe length to largest possible power of 2."""
         truncate_len = 2 ** int(np.log2(self.dataframe.shape[0]))
         self.dataframe = self.dataframe.iloc[:truncate_len]
+
+
+class HFDataSequence(object):
+    """Sequence of high frequency data objects.
+
+    Parameters
+    ----------
+    filepaths : str or list
+        High frequency data file, data directory, or list of either.
+    reader : :class:`~fluxpart.containers.HFDataReader`
+    kind : {'infer', 'file', 'dir'}, optional
+        Indicates whether `filepath` refers to file(s) or directory(s).
+        Default ('infer') tries to determine the kind automatically.
+    ext : str, optional
+        When `filepath` refers to a directory, all files in the
+        directory with extension `ext` will be read. Default ("") reads
+        all files regardless of extension. When specifying `ext`,
+        include the 'dot' where appropriate (e.g., ``ext=".dat"``)
+
+
+    """
+
+    def __init__(self, filepaths, reader, kind="infer", ext=""):
+        self._ext = ext
+        self._filepaths = filepaths
+        self._kind = kind
+        self.reader = reader
+
+    def files(self):
+        filepaths = self._filepaths
+        if isinstance(filepaths, str):
+            filepaths = [filepaths]
+        if self._kind.lower() == "infer":
+            if os.path.isfile(filepaths[0]):
+                kind = "file"
+            elif os.path.isdir(filepaths[0]):
+                kind = "dir"
+            else:
+                raise HFDataReadError("Unable to infer sequence type")
+        if kind.lower() == "dir":
+            unsorted_files = []
+            for p in filepaths:
+                unsorted_files += glob(os.path.join(p, "*" + self._ext))
+        elif kind.lower() == "file":
+            unsorted_files = filepaths
+        else:
+            raise HFDataReadError("Sequence type not recognized")
+
+        datafiles = [(self.reader.peektime(f), f) for f in unsorted_files]
+        datafiles.sort(key=lambda p: p[0])
+        return datafiles
+
+    def chunk(self, interval="30min"):
+        """Generator that reads/partitions data by time interval.
+
+        Parameters
+        ----------
+        interval : str
+            Offset alias_ specifying the chunking interval. Default is '30min'.
+
+        Notes
+        -----
+        When `files` is a single file, then a rough equivalent is:
+
+            df = HFData.read(file)
+            for time, group in df.groupby(df.index.floor(interval):
+                yield time, group
+
+
+        .. _alias:
+            http://pandas.pydata.org/pandas-docs/stable/timeseries.html#offset-aliases
+
+        """
+        timesfiles = self.files()
+        dataframes = []
+        current_interval = timesfiles[0][0].floor(interval)
+        for time, _file in timesfiles:
+            try:
+                hfdat = self.reader.read(_file)
+            except HFDataReadError:
+                # TODO: raise Warning (or Error?)
+                continue
+            dataframes.append(hfdat)
+            if hfdat.index[-1].floor(interval) == current_interval:
+                continue
+
+            # If we reach here, then at least one new interval has been
+            # found. We yield all read intervals except the very last
+            # one because more of that interval could still be in the
+            # next file to be read
+
+            df = pd.concat(dataframes)
+            gdf = df.groupby(df.index.floor(interval))
+            group = iter(gdf)
+            for _ in range(len(gdf) - 1):
+                yield next(group)
+            current_interval, df = next(group)
+            dataframes = [df]
+
+        # should always be one remaining interval to clean up
+        yield current_interval, pd.concat(dataframes)
 
 
 def get_hfdata(fname, *args, **kws):

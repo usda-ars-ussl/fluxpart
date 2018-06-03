@@ -5,7 +5,7 @@ import numpy as np
 import numpy.testing as npt
 import pandas as pd
 
-from fluxpart.hfdata import HFData, HFDataReader
+from fluxpart.hfdata import HFData, HFDataReader, HFDataSequence
 from fluxpart.fluxpart import _converter_func
 
 TESTDIR = os.path.dirname(os.path.realpath(__file__))
@@ -13,77 +13,6 @@ DATADIR = os.path.join(TESTDIR, "data")
 
 
 def test_hfdata_read_csv():
-    cols = (2, 3, 4, 5, 6, 7, 8)
-    fname = os.path.join(DATADIR, "TOA5_6843.ts_Above_2012_06_07_1300.dat")
-
-    kws = dict(
-        skiprows=4,
-        converters={
-            "T": _converter_func(1, 273.15),
-            "q": _converter_func(1e-3, 0),
-            "c": _converter_func(1e-6, 0),
-            "P": _converter_func(1e3, 0),
-        },
-    )
-
-    reader = HFDataReader(cols=cols, flags={"ex_flag": (9, 0)}, **kws)
-    data = HFData(reader.read(fname))
-    assert_1300_read(data)
-
-    kws = dict(
-        time_col=0,
-        skiprows=4,
-        converters={
-            "T": _converter_func(1, 273.15),
-            "q": _converter_func(1e-3, 0),
-            "c": _converter_func(1e-6, 0),
-            "P": _converter_func(1e3, 0),
-        },
-    )
-
-    reader = HFDataReader(cols=cols, flags={"ex_flag": (9, 0)}, **kws)
-    data = HFData(reader.read(fname))
-    assert_1300_read(data)
-    assert data.dataframe.index[0] == pd.to_datetime("2012-06-07 13:00:00.05")
-    assert data.dataframe.index[-1] == pd.to_datetime("2012-06-07 13:15:00")
-
-    df = pd.read_csv(
-        fname,
-        usecols=[2, 3, 4, 5, 6, 7, 8, 9],
-        names=["u", "v", "w", "c", "q", "T", "P", "ex_flag"],
-        skiprows=4,
-    )
-
-    reader = HFDataReader(
-        filetype="pd.df",
-        flags={"ex_flag": (7, 0)},
-        cols=[0, 1, 2, 3, 4, 5, 6],
-        converters={
-            "T": _converter_func(1, 273.15),
-            "q": _converter_func(1e-3, 0),
-            "c": _converter_func(1e-6, 0),
-            "P": _converter_func(1e3, 0),
-        },
-    )
-    data = HFData(reader.read(df))
-    assert_1300_read(data)
-
-    fname = os.path.join(DATADIR, "testing.tob")
-    kws = dict(
-        filetype="tob1",
-        cols=(3, 4, 5, 6, 7, 8, 9),
-        converters={
-            "T": _converter_func(1, 273.15),
-            "q": _converter_func(1e-3, 0),
-            "c": _converter_func(1e-6, 0),
-            "P": _converter_func(1e3, 0),
-        },
-    )
-
-    reader = HFDataReader(**kws)
-    data = HFData(reader.read(fname))
-    assert_tob_read(data)
-
     toy_data = (
         "foobar baz\n"
         "asdf,0,2,3,4,5,6,7,9,0\n"
@@ -120,6 +49,106 @@ def test_hfdata_read_csv():
     npt.assert_allclose(toy.dataframe["c"], 3 * [6])
     npt.assert_allclose(toy.dataframe["T"], 3 * [4])
     npt.assert_allclose(toy.dataframe["P"], 3 * [5])
+
+    # toa5
+    cols = (2, 3, 4, 5, 6, 7, 8)
+    fname = os.path.join(DATADIR, "TOA5_6843.ts_Above_2012_06_07_1300.dat")
+
+    kws = dict(
+        skiprows=4,
+        converters={
+            "T": _converter_func(1, 273.15),
+            "q": _converter_func(1e-3, 0),
+            "c": _converter_func(1e-6, 0),
+            "P": _converter_func(1e3, 0),
+        },
+    )
+
+    reader = HFDataReader(cols=cols, flags={"ex_flag": (9, 0)}, **kws)
+    data = HFData(reader.read(fname))
+    assert_1300_read(data)
+
+    kws = dict(
+        time_col=0,
+        skiprows=4,
+        converters={
+            "T": _converter_func(1, 273.15),
+            "q": _converter_func(1e-3, 0),
+            "c": _converter_func(1e-6, 0),
+            "P": _converter_func(1e3, 0),
+        },
+    )
+
+    reader = HFDataReader(cols=cols, flags={"ex_flag": (9, 0)}, **kws)
+    data = HFData(reader.read(fname))
+    assert_1300_read(data)
+    assert data.dataframe.index[0] == pd.to_datetime("2012-06-07 13:00:00.05")
+    assert data.dataframe.index[-1] == pd.to_datetime("2012-06-07 13:15:00")
+
+    assert reader.peektime(fname) == pd.to_datetime("2012-06-07 13:00:00.05")
+    seq = HFDataSequence(DATADIR, reader, ext=".dat")
+    for cnt, (time, df) in enumerate(seq.chunk(interval="10min")):
+        assert_10min_chunk_read(cnt, time, df)
+    for cnt, (time, df) in enumerate(seq.chunk(interval="15min")):
+        assert_15min_chunk_read(cnt, time, df)
+    for cnt, (time, df) in enumerate(seq.chunk(interval="20min")):
+        assert_20min_chunk_read(cnt, time, df)
+    fnames = [
+        os.path.join(DATADIR, "TOA5_6843.ts_Above_2012_06_07_1300.dat"),
+        os.path.join(DATADIR, "TOA5_6843.ts_Above_2012_06_07_1245.dat"),
+    ]
+    seq = HFDataSequence(fnames, reader)
+    for cnt, (time, df) in enumerate(seq.chunk(interval="20min")):
+        assert_20min_chunk_read(cnt, time, df)
+
+    # pd.df
+    df = pd.read_csv(
+        fname,
+        usecols=[2, 3, 4, 5, 6, 7, 8, 9],
+        names=["u", "v", "w", "c", "q", "T", "P", "ex_flag"],
+        skiprows=4,
+    )
+
+    reader = HFDataReader(
+        filetype="pd.df",
+        flags={"ex_flag": (7, 0)},
+        cols=[0, 1, 2, 3, 4, 5, 6],
+        converters={
+            "T": _converter_func(1, 273.15),
+            "q": _converter_func(1e-3, 0),
+            "c": _converter_func(1e-6, 0),
+            "P": _converter_func(1e3, 0),
+        },
+    )
+    data = HFData(reader.read(df))
+    assert_1300_read(data)
+
+    # tob
+    fname = os.path.join(DATADIR, "testing.tob")
+    kws = dict(
+        filetype="tob1",
+        cols=(3, 4, 5, 6, 7, 8, 9),
+        converters={
+            "T": _converter_func(1, 273.15),
+            "q": _converter_func(1e-3, 0),
+            "c": _converter_func(1e-6, 0),
+            "P": _converter_func(1e3, 0),
+        },
+    )
+
+    reader = HFDataReader(**kws)
+    data = HFData(reader.read(fname))
+    assert_tob_read(data)
+    assert reader.peektime(fname) == pd.to_datetime("2017-08-03 00:00:00.1")
+
+    assert data.dataframe.index[0] == pd.to_datetime("2017-08-03 00:00:00.1")
+    assert data.dataframe.index[-1] == pd.to_datetime("2017-08-03 00:00:14.4")
+
+    seq = HFDataSequence(DATADIR, reader, ext=".tob")
+    for cnt, (time, df) in enumerate(seq.chunk(interval="5S")):
+        assert_5S_tobchunk_read(cnt, time, df)
+    for cnt, (time, df) in enumerate(seq.chunk(interval="1min")):
+        assert_1min_tobchunk_read(cnt, time, df)
 
 
 def assert_1300_read(data):
@@ -164,6 +193,90 @@ def assert_tob_read(data):
     npt.assert_allclose(data["P"].iloc[-1], 85.0407e3)
     assert data.dataframe.index[0] == pd.to_datetime("2017-08-03 00:00:00.1")
     assert data.dataframe.index[-1] == pd.to_datetime("2017-08-03 00:00:14.4")
+
+
+def assert_10min_chunk_read(ichunk, time, df):
+    times = [
+        "2012-06-07 12:40:00",
+        "2012-06-07 12:50:00",
+        "2012-06-07 13:00:00",
+        "2012-06-07 13:10:00",
+    ]
+    starts = [
+        "2012-06-07 12:45:00.05",
+        "2012-06-07 12:50:00",
+        "2012-06-07 13:00:00",
+        "2012-06-07 13:10:00",
+    ]
+    stops = [
+        "2012-06-07 12:49:59.95",
+        "2012-06-07 12:59:59.95",
+        "2012-06-07 13:09:59.95",
+        "2012-06-07 13:15:00",
+    ]
+    assert time == pd.to_datetime(times[ichunk])
+    assert df.index[0] == pd.to_datetime(starts[ichunk])
+    assert df.index[-1] == pd.to_datetime(stops[ichunk])
+
+
+def assert_15min_chunk_read(ichunk, time, df):
+    times = [
+        "2012-06-07 12:45:00",
+        "2012-06-07 13:00:00",
+        "2012-06-07 13:15:00",
+    ]
+    starts = [
+        "2012-06-07 12:45:00.05",
+        "2012-06-07 13:00:00",
+        "2012-06-07 13:15:00",
+    ]
+    stops = [
+        "2012-06-07 12:59:59.95",
+        "2012-06-07 13:14:59.95",
+        "2012-06-07 13:15:00",
+    ]
+    assert time == pd.to_datetime(times[ichunk])
+    assert df.index[0] == pd.to_datetime(starts[ichunk])
+    assert df.index[-1] == pd.to_datetime(stops[ichunk])
+
+
+def assert_20min_chunk_read(ichunk, time, df):
+    times = ["2012-06-07 12:40:00", "2012-06-07 13:00:00"]
+    starts = ["2012-06-07 12:45:00.05", "2012-06-07 13:00:00"]
+    stops = ["2012-06-07 12:59:59.95", "2012-06-07 13:15:00"]
+    assert time == pd.to_datetime(times[ichunk])
+    assert df.index[0] == pd.to_datetime(starts[ichunk])
+    assert df.index[-1] == pd.to_datetime(stops[ichunk])
+
+
+def assert_5S_tobchunk_read(cnt, time, df):
+    times = [
+        "2017-08-03 00:00:00",
+        "2017-08-03 00:00:05",
+        "2017-08-03 00:00:10",
+    ]
+    starts = [
+        "2017-08-03 00:00:00.1",
+        "2017-08-03 00:00:05",
+        "2017-08-03 00:00:10",
+    ]
+    stops = [
+        "2017-08-03 00:00:04.9",
+        "2017-08-03 00:00:09.9",
+        "2017-08-03 00:00:14.4",
+    ]
+    assert time == pd.to_datetime(times[cnt])
+    assert df.index[0] == pd.to_datetime(starts[cnt])
+    assert df.index[-1] == pd.to_datetime(stops[cnt])
+
+
+def assert_1min_tobchunk_read(cnt, time, df):
+    times = ["2017-08-03 00:00:00"]
+    starts = ["2017-08-03 00:00:00.1"]
+    stops = ["2017-08-03 00:00:14.4"]
+    assert time == pd.to_datetime(times[cnt])
+    assert df.index[0] == pd.to_datetime(starts[cnt])
+    assert df.index[-1] == pd.to_datetime(stops[cnt])
 
 
 if __name__ == "__main__":

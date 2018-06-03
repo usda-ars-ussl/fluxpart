@@ -17,7 +17,7 @@ NP_TYPE = {
 }
 
 
-def tob1_to_array(tobfile):
+def tob1_to_array(tobfile, count=-1):
     """Read TOB1 data file into structured numpy array."""
     with open(tobfile, "rb") as f:
         f.readline()
@@ -26,7 +26,7 @@ def tob1_to_array(tobfile):
         f.readline()
         types = f.readline().decode().strip().replace('"', "").split(",")
         dtype = np.dtype([(n, NP_TYPE[t]) for n, t in zip(names, types)])
-        return np.fromfile(f, dtype=dtype)
+        return np.fromfile(f, dtype=dtype, count=count)
 
 
 def stats2(sarray, names=None):

@@ -36,7 +36,7 @@ def test_hfdata_read_csv():
         skiprows=1,
         na_values="???",
         converters={"q": _converter_func(10., 0)},
-        flags={"ex_flag": (9, 0)},
+        flags=(9, 0),
         delimiter=",",
     )
     toy = HFData(reader.read(io.BytesIO(toy_data.encode())))
@@ -64,7 +64,7 @@ def test_hfdata_read_csv():
         },
     )
 
-    reader = HFDataReader(cols=cols, flags={"ex_flag": (9, 0)}, **kws)
+    reader = HFDataReader(cols=cols, flags=[(9, 0)], **kws)
     data = HFData(reader.read(fname))
     assert_1300_read(data)
 
@@ -79,7 +79,7 @@ def test_hfdata_read_csv():
         },
     )
 
-    reader = HFDataReader(cols=cols, flags={"ex_flag": (9, 0)}, **kws)
+    reader = HFDataReader(cols=cols, flags=[(9, 0)], **kws)
     data = HFData(reader.read(fname))
     assert_1300_read(data)
     assert data.dataframe.index[0] == pd.to_datetime("2012-06-07 13:00:00.05")
@@ -111,7 +111,7 @@ def test_hfdata_read_csv():
 
     reader = HFDataReader(
         filetype="pd.df",
-        flags={"ex_flag": (7, 0)},
+        flags=(7, 0),
         cols=[0, 1, 2, 3, 4, 5, 6],
         converters={
             "T": _converter_func(1, 273.15),

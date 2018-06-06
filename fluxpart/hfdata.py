@@ -45,6 +45,9 @@ class TooFewDataError(Error):
         )
 
 
+VAR_NAMES = ["u", "v", "w", "c", "q", "T", "P"]
+
+
 class HFDataReader(object):
     """Reader for high-frequency eddy covariance data.
 
@@ -79,8 +82,6 @@ class HFDataReader(object):
 
     """
 
-    var_names = ["u", "v", "w", "c", "q", "T", "P"]
-
     def __init__(
         self,
         filetype="csv",
@@ -93,14 +94,20 @@ class HFDataReader(object):
         self._filetype = filetype.strip().lower()
         self._cols = cols
         self._time_col = time_col
-        self._converters = converters or {}
-        self._flags = flags or {}
+        self._converters = {} if converters is None else converters
+        if flags is None:
+            self._flags = []
+        elif not isinstance(flags, list):
+            self._flags = [flags]
+        else:
+            self._flags = flags
         self._readcsv_kws = kwargs
 
     @property
     def _namecols(self):
-        namecols = dict(zip(HFDataReader.var_names, self._cols))
-        namecols.update({k: v[0] for k, v in self._flags.items()})
+        namecols = dict(zip(VAR_NAMES, self._cols))
+        flags = {"flag-" + str(col): col for col, val in self._flags}
+        namecols.update(flags)
         if isinstance(self._time_col, int) and self._filetype == "csv":
             namecols["Datetime"] = self._time_col
         return namecols
@@ -195,9 +202,11 @@ class HFDataReader(object):
         return df
 
     def _flagvals_to_mask(self, df):
-        """Mask is True if not good data value."""
-        for flg, (_, goodval) in self._flags.items():
-            df.loc[:, flg] = df.loc[:, flg] != goodval
+        """Mask is True if flag does not equal the good value."""
+        for col, val in self._flags:
+            df.loc[:, "flag-" + str(col)] = (
+                df.loc[:, "flag-" + str(col)] != val
+            )
         return df
 
 
@@ -251,8 +260,9 @@ class HFData(object):
 
         # 1D mask is True for a row if any data are nan, any flag is
         # True, or any data are out-of-bounds
-        mask = data.iloc[:, :7].isnull().any(axis=1)
-        mask |= data.iloc[:, 7:].any(axis=1)
+        varindx = pd.Index(VAR_NAMES)
+        mask = data.loc[:, varindx].isnull().any(axis=1)
+        mask |= data.loc[:, data.columns.difference(varindx)].any(axis=1)
         for var, (low, high) in bounds.items():
             mask |= (data[var] < low) | (data[var] > high)
 
@@ -312,7 +322,7 @@ class HFData(object):
             :class:`~fluxpart.containers.HFSummary`
 
         """
-        hfs = util.stats2(self.dataframe, HFDataReader.var_names)
+        hfs = util.stats2(self.dataframe, VAR_NAMES)
         Pvap = hfs.ave_q * GC.vapor * hfs.ave_T
         rho_dryair = (hfs.ave_P - Pvap) / GC.dryair / hfs.ave_T
         rho_totair = rho_dryair + hfs.ave_q

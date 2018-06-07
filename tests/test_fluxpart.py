@@ -38,15 +38,15 @@ def test_flux_partition():
         LEt=354.310004313924,
     )
 
-    hfd = {
-        "cols": (2, 3, 4, 5, 6, 7, 8),
-        "delimiter": ",",
-        "skiprows": 4,
-        "unit_convert": {"q": 1e-3, "c": 1e-6, "P": 1e3},
-        "temper_unit": "C",
-    }
+    # hfd = {
+    #     "cols": (2, 3, 4, 5, 6, 7, 8),
+    #     "delimiter": ",",
+    #     "skiprows": 4,
+    #     "unit_convert": {"q": 1e-3, "c": 1e-6, "P": 1e3},
+    #     "temper_unit": "C",
+    # }
 
-    fvsp = flux_partition(fname, wue_options=wue_data, hfd_options=hfd)
+    fvsp = flux_partition(fname, wue_options=wue_data, hfd_format="ec-TOA5")
 
     npt.assert_allclose(
         fvsp.fvsp_result.rootsoln.var_cp, 18.9272e-12, atol=1e-12
@@ -69,7 +69,7 @@ def test_flux_partition():
         LEt=335.283229492226,
     )
 
-    fvsp = flux_partition(fname, wue_options=wue_data, hfd_options=hfd)
+    fvsp = flux_partition(fname, wue_options=wue_data, hfd_format="ec-TOA5")
 
     npt.assert_allclose(
         fvsp.fvsp_result.rootsoln.var_cp, 15.2944e-12, atol=1e-12

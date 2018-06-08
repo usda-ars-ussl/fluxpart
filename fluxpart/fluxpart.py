@@ -5,7 +5,7 @@ import numpy as np
 
 from .__version__ import __version__
 from .wue import water_use_efficiency, WUEError
-from .hfdata import get_hfdata, HFDataReadError, TooFewDataError
+from .hfdata import HFDataReader, HFDataReadError, TooFewDataError
 from .partition import fvspart_progressive
 from .util import vapor_press_deficit
 from .containers import AllFluxes, WUE
@@ -51,6 +51,15 @@ PART_OPTIONS = dict(adjust_fluxes=True, sun=None, interval=None)
 _bad_ustar = "ustar = {:.4} is less than ustar_tol = {:.4}"
 _bad_vpd = "Vapor pressure deficit({} <= 0"
 _bad_qflux = "Fq = cov(w,q) = {:.4} <= 0 is incompatible with fvs partitioning"
+
+
+class Error(Exception):
+    pass
+
+
+class FluxpartError(Error):
+    def __init__(self, message):
+        self.message = message
 
 
 def fvs_partition(
@@ -300,24 +309,23 @@ def fvs_partition(
     elif hfd_format.upper() == "EC-TOB1":
         hfd_format = deepcopy(EC_TOB1)
     else:
-        # _validate_hfd_format(hfd_format)
-        pass
+        hfd_format = deepcopy(hfd_format)
+        _validate_hfd_format(hfd_format)
 
     hfd_options = {**HFD_OPTIONS, **(hfd_options or {})}
     wue_options = {**WUE_OPTIONS, **(wue_options or {})}
     part_options = {**PART_OPTIONS, **(part_options or {})}
 
-    usecols = np.array(hfd_format.pop("cols"), dtype=int).reshape(7)
     unit_convert = hfd_format.pop("unit_convert", {})
     converters = {k: _converter_func(v, 0.) for k, v in unit_convert.items()}
     temper_unit = hfd_format.pop("temper_unit")
     if temper_unit.upper() == "C" or temper_unit.upper() == "CELSIUS":
         converters["T"] = _converter_func(1., 273.15)
+    hfd_format['converters'] = converters
 
+    reader = HFDataReader(**hfd_format)
     try:
-        hfdat = get_hfdata(
-            file_or_dir, cols=usecols, converters=converters, **hfd_format
-        )
+        hfdat = reader.read(file_or_dir)
     except HFDataReadError as err:
         return FluxpartResult(dataread=False, mssg=err.args[0])
 
@@ -458,18 +466,10 @@ def _converter_func(slope, intercept):
     return func
 
 
-if __name__ == "__main__":
-    pass
-"""
 def _validate_hfd_format(hfd_format):
-    try:
-        cols = hfd_format["cols"]
-    except KeyError:
+    if 'cols' not in hfd_format:
         raise Error("No value for hfd_format['cols'] given.")
     if "filetype" not in hfd_format:
         raise Error("No value for hfd_format['filetype'] given.")
     if hfd_format["filetype"] not in ("csv", "tob1", "pd.df"):
-        raise Error(f"Unrecognized filetype: {filetype}")
-"""
-
-
+        raise Error(f"Unrecognized filetype: {hfd_format['filetype']}")

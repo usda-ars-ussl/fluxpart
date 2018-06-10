@@ -44,7 +44,7 @@ def water_use_efficiency(
 
     Parameters
     ----------
-    hfs : :class:`~fluxpart.containers.HFSummary` namedtuple
+    hfs : :class:`~fluxpart.hfdata.HFSummary` namedtuple
         Summary statistics for high frequency eddy covariance data interval.
         Possesses the following attributes (all floats):
         `rho_vapor`, mean vapor density (kg/m^3);

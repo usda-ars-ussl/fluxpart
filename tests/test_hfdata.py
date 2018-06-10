@@ -5,14 +5,14 @@ import numpy as np
 import numpy.testing as npt
 import pandas as pd
 
-from fluxpart.hfdata import HFData, HFDataReader, HFDataSequence
+from fluxpart.hfdata import HFData, HFDataSource
 from fluxpart.fluxpart import _converter_func
 
 TESTDIR = os.path.dirname(os.path.realpath(__file__))
 DATADIR = os.path.join(TESTDIR, "data")
 
 
-def test_hfdata_read_csv():
+def test_hfdata_reader():
     toy_data = (
         "foobar baz\n"
         "asdf,0,2,3,4,5,6,7,9,0\n"
@@ -30,7 +30,8 @@ def test_hfdata_read_csv():
         "asdf,11,-2,3,4,5,6,7,9,0\n"
     )
 
-    reader = HFDataReader(
+    source = HFDataSource(
+        filetype="csv",
         cols=(1, 2, 3, 6, 7, 4, 5),
         comment="#",
         skiprows=1,
@@ -39,7 +40,8 @@ def test_hfdata_read_csv():
         flags=(9, 0),
         delimiter=",",
     )
-    toy = HFData(reader.read(io.BytesIO(toy_data.encode())))
+
+    toy = source._readfile(io.BytesIO(toy_data.encode()), df_output=False)
     toy.cleanse(rd_tol=0.1, ad_tol=2, bounds={"v": (0, np.inf)})
 
     npt.assert_allclose(toy.dataframe["u"], [4, 5, 6])
@@ -62,43 +64,50 @@ def test_hfdata_read_csv():
             "c": _converter_func(1e-6, 0),
             "P": _converter_func(1e3, 0),
         },
+        flags=[(9, 0)],
     )
 
-    reader = HFDataReader(cols=cols, flags=[(9, 0)], **kws)
-    data = HFData(reader.read(fname))
+    source = HFDataSource(filetype="csv", cols=cols, **kws)
+    data = HFData(source._readfile(fname, df_output=True))
     assert_1300_read(data)
 
     kws = dict(
-        time_col=0,
         skiprows=4,
+        time_col=0,
         converters={
             "T": _converter_func(1, 273.15),
             "q": _converter_func(1e-3, 0),
             "c": _converter_func(1e-6, 0),
             "P": _converter_func(1e3, 0),
         },
+        flags=(9, 0),
     )
 
-    reader = HFDataReader(cols=cols, flags=[(9, 0)], **kws)
-    data = HFData(reader.read(fname))
-    assert_1300_read(data)
+    source = HFDataSource(filetype="csv", cols=cols, **kws)
+    reader = source.reader(fname, interval="15min")
+    time, data = next(reader)
+    data = HFData(data)
     assert data.dataframe.index[0] == pd.to_datetime("2012-06-07 13:00:00.05")
-    assert data.dataframe.index[-1] == pd.to_datetime("2012-06-07 13:15:00")
+    assert data.dataframe.index[-1] == pd.to_datetime("2012-06-07 13:14:59.95")
+    assert source._peektime(fname) == pd.to_datetime("2012-06-07 13:00:00.05")
+    assert_1300_interval_read(data)
 
-    assert reader.peektime(fname) == pd.to_datetime("2012-06-07 13:00:00.05")
-    seq = HFDataSequence(DATADIR, reader, ext=".dat")
-    for cnt, (time, df) in enumerate(seq.chunk(interval="10min")):
+    reader = source.reader(DATADIR, interval="10min", ext=".dat")
+    for cnt, (time, df) in enumerate(reader):
         assert_10min_chunk_read(cnt, time, df)
-    for cnt, (time, df) in enumerate(seq.chunk(interval="15min")):
+    reader = source.reader(DATADIR, interval="15min", ext=".dat")
+    for cnt, (time, df) in enumerate(reader):
         assert_15min_chunk_read(cnt, time, df)
-    for cnt, (time, df) in enumerate(seq.chunk(interval="20min")):
+    reader = source.reader(DATADIR, interval="20min", ext=".dat")
+    for cnt, (time, df) in enumerate(reader):
         assert_20min_chunk_read(cnt, time, df)
+
     fnames = [
         os.path.join(DATADIR, "TOA5_6843.ts_Above_2012_06_07_1300.dat"),
         os.path.join(DATADIR, "TOA5_6843.ts_Above_2012_06_07_1245.dat"),
     ]
-    seq = HFDataSequence(fnames, reader)
-    for cnt, (time, df) in enumerate(seq.chunk(interval="20min")):
+    reader = source.reader(fnames, interval="20min", ext=".dat")
+    for cnt, (time, df) in enumerate(reader):
         assert_20min_chunk_read(cnt, time, df)
 
     # pd.df
@@ -109,7 +118,7 @@ def test_hfdata_read_csv():
         skiprows=4,
     )
 
-    reader = HFDataReader(
+    source = HFDataSource(
         filetype="pd.df",
         flags=(7, 0),
         cols=[0, 1, 2, 3, 4, 5, 6],
@@ -120,7 +129,7 @@ def test_hfdata_read_csv():
             "P": _converter_func(1e3, 0),
         },
     )
-    data = HFData(reader.read(df))
+    data = source._readfile(df)
     assert_1300_read(data)
 
     # tob
@@ -136,18 +145,19 @@ def test_hfdata_read_csv():
         },
     )
 
-    reader = HFDataReader(**kws)
-    data = HFData(reader.read(fname))
+    source = HFDataSource(**kws)
+    time, data = next(source.reader(fname, interval="30min"))
+    data = HFData(data)
     assert_tob_read(data)
-    assert reader.peektime(fname) == pd.to_datetime("2017-08-03 00:00:00.1")
-
+    assert source._peektime(fname) == pd.to_datetime("2017-08-03 00:00:00.1")
     assert data.dataframe.index[0] == pd.to_datetime("2017-08-03 00:00:00.1")
     assert data.dataframe.index[-1] == pd.to_datetime("2017-08-03 00:00:14.4")
 
-    seq = HFDataSequence(DATADIR, reader, ext=".tob")
-    for cnt, (time, df) in enumerate(seq.chunk(interval="5S")):
+    reader = source.reader(DATADIR, interval="5s", ext=".tob")
+    for cnt, (time, df) in enumerate(reader):
         assert_5S_tobchunk_read(cnt, time, df)
-    for cnt, (time, df) in enumerate(seq.chunk(interval="1min")):
+    reader = source.reader(DATADIR, interval="1min", ext=".tob")
+    for cnt, (time, df) in enumerate(reader):
         assert_1min_tobchunk_read(cnt, time, df)
 
 
@@ -166,6 +176,32 @@ def assert_1300_read(data):
     npt.assert_allclose(data["q"].iloc[-1], 9.404386e-3)
     npt.assert_allclose(data["T"].iloc[-1], 28.35199 + 273.15)
     npt.assert_allclose(data["P"].iloc[-1], 100.1938e3)
+
+    npt.assert_allclose(data["u"].mean(), 1.43621, atol=1e-4)
+    npt.assert_allclose(data["v"].mean(), -0.634818, atol=1e-4)
+    npt.assert_allclose(data["w"].mean(), 0.0619483, atol=1e-4)
+    npt.assert_allclose(data["c"].mean(), 659.052e-6, atol=1e-9)
+    npt.assert_allclose(data["q"].mean(), 9.56732e-3, atol=1e-7)
+    npt.assert_allclose(data["T"].mean(), 28.5431 + 273.15, atol=1e-4)
+    npt.assert_allclose(data["P"].mean(), 100.179e3, atol=1e0)
+
+
+def assert_1300_interval_read(data):
+    """last line in file is not read because belongs to next interval"""
+    npt.assert_allclose(data["u"].iloc[0], 0.468)
+    npt.assert_allclose(data["v"].iloc[0], -0.9077501)
+    npt.assert_allclose(data["w"].iloc[0], 0.1785)
+    npt.assert_allclose(data["c"].iloc[0], 659.7584e-6)
+    npt.assert_allclose(data["q"].iloc[0], 9.530561e-3)
+    npt.assert_allclose(data["T"].iloc[0], 28.52527 + 273.15)
+    npt.assert_allclose(data["P"].iloc[0], 100.1938e3)
+    npt.assert_allclose(data["u"].iloc[-1], 1.20050)
+    npt.assert_allclose(data["v"].iloc[-1], -0.775)
+    npt.assert_allclose(data["w"].iloc[-1], -0.1610)
+    npt.assert_allclose(data["c"].iloc[-1], 658.3277e-6)
+    npt.assert_allclose(data["q"].iloc[-1], 9.394239e-3)
+    npt.assert_allclose(data["T"].iloc[-1], 28.35199 + 273.15)
+    npt.assert_allclose(data["P"].iloc[-1], 100.1678e3)
 
     npt.assert_allclose(data["u"].mean(), 1.43621, atol=1e-4)
     npt.assert_allclose(data["v"].mean(), -0.634818, atol=1e-4)
@@ -280,4 +316,4 @@ def assert_1min_tobchunk_read(cnt, time, df):
 
 
 if __name__ == "__main__":
-    test_hfdata_read_csv()
+    test_hfdata_reader()

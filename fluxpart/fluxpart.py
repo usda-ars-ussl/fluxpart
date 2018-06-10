@@ -5,7 +5,7 @@ import numpy as np
 
 from .__version__ import __version__
 from .wue import water_use_efficiency, WUEError
-from .hfdata import HFDataReader, HFDataReadError, TooFewDataError
+from .hfdata import HFDataSource, HFDataReadError, TooFewDataError
 from .partition import fvspart_progressive
 from .util import vapor_press_deficit
 from .containers import AllFluxes, WUE
@@ -16,7 +16,7 @@ EC_TOA5 = {
     "skiprows": 4,
     "cols": (2, 3, 4, 5, 6, 7, 8),
     "time_col": 0,
-    "temper_unit": 'C',
+    "temper_unit": "C",
     "unit_convert": dict(q=1e-3, c=1e-6, P=1e3),
 }
 
@@ -321,11 +321,11 @@ def fvs_partition(
     temper_unit = hfd_format.pop("temper_unit")
     if temper_unit.upper() == "C" or temper_unit.upper() == "CELSIUS":
         converters["T"] = _converter_func(1., 273.15)
-    hfd_format['converters'] = converters
+    hfd_format["converters"] = converters
 
-    reader = HFDataReader(**hfd_format)
+    source = HFDataSource(**hfd_format)
     try:
-        hfdat = reader.read(file_or_dir)
+        hfdat = source._readfile(file_or_dir, df_output=False)
     except HFDataReadError as err:
         return FluxpartResult(dataread=False, mssg=err.args[0])
 
@@ -424,7 +424,7 @@ class FluxpartResult(object):
             Optional id label. Could be, e.g. a datetime object or string.
         fvsp_result : :class:`~fluxpart.containers.FVSPResult`
         wue : :class:`~fluxpart.containers.WUE`
-        hfsummary : :class:`~fluxpart.containers.HFSummary`
+        hfsummary : :class:`~fluxpart.hfdata.HFSummary`
 
         """
         self.version = __version__
@@ -467,7 +467,7 @@ def _converter_func(slope, intercept):
 
 
 def _validate_hfd_format(hfd_format):
-    if 'cols' not in hfd_format:
+    if "cols" not in hfd_format:
         raise Error("No value for hfd_format['cols'] given.")
     if "filetype" not in hfd_format:
         raise Error("No value for hfd_format['filetype'] given.")

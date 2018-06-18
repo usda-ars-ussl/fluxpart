@@ -38,6 +38,7 @@ def water_use_efficiency(
     leaf_temper=None,
     leaf_temper_corr=0,
     diff_ratio=1.6,
+    date=None,
 ):
 
     """Estimate leaf-level water use efficiency.
@@ -147,6 +148,10 @@ def water_use_efficiency(
         plants.
 
     """
+    if callable(canopy_ht):
+        canopy_ht = canopy_ht(date)
+    if callable(meas_ht):
+        meas_ht = meas_ht(date)
     if canopy_ht > meas_ht:
         raise WUEError("canopy_ht is less than meas_ht")
 

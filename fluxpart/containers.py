@@ -119,7 +119,7 @@ class AllFluxes(object):
 
 
 @attr.s
-class FVSPResult(object):
+class FVSPSolution(object):
     """Result of FVS partitioning.
 
     Parameters
@@ -137,7 +137,6 @@ class FVSPResult(object):
 
     wqc_data = attr.ib(default=None)
     rootsoln = attr.ib(default=None)
-    fluxes = attr.ib(default=None)
     wave_lvl = attr.ib(default=None)
     valid_partition = attr.ib(default=False)
     mssg = attr.ib(default=None)
@@ -150,8 +149,6 @@ class FVSPResult(object):
             f"valid_partition: {self.valid_partition}\n"
             f"mssg: {self.mssg}\n"
         )
-        if self.fluxes is not None:
-            result += self.fluxes.__str__() + "\n"
         if self.wqc_data is not None:
             result += self.wqc_data.__str__() + "\n"
         result += f"Wavelet filtering level: {self.wave_lvl}\n"

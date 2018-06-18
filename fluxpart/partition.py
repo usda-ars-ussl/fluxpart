@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import numpy as np
 
 import fluxpart.util as util
-from .containers import FVSPResult, MassFluxes, RootSoln, WQCData
+from .containers import FVSPSolution, MassFluxes, RootSoln, WQCData
 
 
 def fvspart_progressive(w, q, c, wue, adjust_fluxes=True):
@@ -30,7 +30,7 @@ def fvspart_progressive(w, q, c, wue, adjust_fluxes=True):
 
     Returns
     -------
-    :class:`~fluxpart.containers.FVSPResult`
+    :class:`~fluxpart.containers.FVSPSolution`
 
     Notes
     -----
@@ -50,14 +50,12 @@ def fvspart_progressive(w, q, c, wue, adjust_fluxes=True):
 
     for cnt, lowcut_wqc in enumerate(_progressive_lowcut(w, q, c)):
         wave_lvl = (max_decomp_lvl - cnt, max_decomp_lvl)
-        fvsp = fvspart_series(*lowcut_wqc, wue)
+        fluxes, fvsp = fvspart_series(*lowcut_wqc, wue)
 
         if fvsp.rootsoln.isvalid:
             if adjust_fluxes:
-                fvsp.fluxes = _adjust_fluxes(fvsp.fluxes, wue, wq_tot, wc_tot)
-                fvsp.valid_partition, fvsp.mssg = _isvalid_partition(
-                    fvsp.fluxes
-                )
+                fluxes = _adjust_fluxes(fluxes, wue, wq_tot, wc_tot)
+                fvsp.valid_partition, fvsp.mssg = _isvalid_partition(fluxes)
             if fvsp.valid_partition:
                 break
 
@@ -66,8 +64,8 @@ def fvspart_progressive(w, q, c, wue, adjust_fluxes=True):
         fvsp.valid_partition = False
         fvsp.mssg = fvsp.rootsoln.mssg
     if not fvsp.valid_partition:
-        fvsp.fluxes = MassFluxes()
-    return fvsp
+        fluxes = MassFluxes()
+    return fluxes, fvsp
 
 
 def fvspart_series(w, q, c, wue, wipe_if_invalid=False):
@@ -87,7 +85,7 @@ def fvspart_series(w, q, c, wue, wipe_if_invalid=False):
 
     Returns
     -------
-    :class:`~fluxpart.containers.FVSPResult`,
+    :class:`~fluxpart.containers.FVSPSolution`,
 
     """
     cov = np.cov([w, q, c])
@@ -116,15 +114,14 @@ def fvspart_interval(wqc_data, wue, wipe_if_invalid=False):
 
     Returns
     -------
-    :class:`~fluxpart.containers.FVSPResult`
+    :class:`~fluxpart.containers.FVSPSolution`
 
     """
     rootsoln = findroot(wqc_data, wue)
     if not rootsoln.isvalid:
-        return FVSPResult(
+        return FVSPSolution(
             wqc_data=wqc_data,
             rootsoln=rootsoln,
-            fluxes=MassFluxes(),
             valid_partition=False,
             mssg=rootsoln.mssg,
         )
@@ -138,13 +135,13 @@ def fvspart_interval(wqc_data, wue, wipe_if_invalid=False):
     isvalid, mssg = _isvalid_partition(mass_fluxes)
     if not isvalid and wipe_if_invalid:
         mass_fluxes = MassFluxes()
-    return FVSPResult(
+    fvsps = FVSPSolution(
         wqc_data=wqc_data,
         rootsoln=rootsoln,
-        fluxes=mass_fluxes,
         valid_partition=isvalid,
         mssg=mssg,
     )
+    return mass_fluxes, fvsps
 
 
 def findroot(wqc_data, wue):
@@ -271,14 +268,12 @@ def flux_ratio(var_cp, corr_cp_cr, wqc_data, ftype, farg):
     which is required/assumed by the physical model in [SS08]_.
 
     """
-    if ftype == "co2" or ftype == "CO2":
+    if ftype.lower() == "co2":
         sign = 1 if farg == 1 else -1
         num = wqc_data.var_c
-    elif ftype == "h2o" or ftype == "H2O":
+    else:  # is "h2o"
         sign = 1
         num = farg ** 2 * wqc_data.var_q
-    else:
-        raise ValueError("ftype must be 'co2' or 'h2o'")
     disc = 1 - 1 / corr_cp_cr ** 2 + num / var_cp / corr_cp_cr ** 2
     if disc < 0:
         fratio = np.nan

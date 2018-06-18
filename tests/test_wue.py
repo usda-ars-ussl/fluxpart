@@ -4,7 +4,7 @@ from fluxpart.wue import water_use_efficiency
 
 
 def test_water_use_efficiency():
-    """ Unit test does not quarantee the wue function is correct, but if
+    """ Unit test does not guarantee the wue function is correct, but if
     this fails, something has changed, and better understand why.
     """
 

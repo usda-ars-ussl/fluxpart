@@ -1,7 +1,10 @@
 import os
 from types import SimpleNamespace
+
 import numpy.testing as npt
-from fluxpart import flux_partition
+
+# from fluxpart import flux_partition
+from fluxpart import fvs_partition
 
 TESTDIR = os.path.dirname(os.path.realpath(__file__))
 
@@ -46,12 +49,12 @@ def test_flux_partition():
     #     "temper_unit": "C",
     # }
 
-    fvsp = flux_partition(fname, wue_options=wue_data, hfd_format="ec-TOA5")
+    fvsp = fvs_partition(fname, wue_options=wue_data, hfd_format="ec-TOA5")[0]
 
     npt.assert_allclose(
         fvsp.fvsp_result.rootsoln.var_cp, 18.9272e-12, atol=1e-12
     )
-    assert_flux_components(fvsp.fvsp_result.fluxes, matlab_fluxes)
+    assert_flux_components(fvsp.fluxes, matlab_fluxes)
 
     # soln is obtained after some wavelet filtering
     fname = os.path.join(
@@ -69,12 +72,12 @@ def test_flux_partition():
         LEt=335.283229492226,
     )
 
-    fvsp = flux_partition(fname, wue_options=wue_data, hfd_format="ec-TOA5")
+    fvsp = fvs_partition(fname, wue_options=wue_data, hfd_format="ec-TOA5")[0]
 
     npt.assert_allclose(
         fvsp.fvsp_result.rootsoln.var_cp, 15.2944e-12, atol=1e-12
     )
-    assert_flux_components(fvsp.fvsp_result.fluxes, matlab_fluxes)
+    assert_flux_components(fvsp.fluxes, matlab_fluxes)
 
 
 def assert_flux_components(calc, desired):

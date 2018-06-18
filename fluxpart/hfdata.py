@@ -47,12 +47,14 @@ class TooFewDataError(Error):
 
 VAR_NAMES = ["u", "v", "w", "c", "q", "T", "P"]
 
+_badfiletype = "File type not recognized ({})"
+
 
 class HFData(object):
     """
     Parameters
     ----------
-    dataframe
+    hf_dataframe
         High frequency eddy covariance dataframe. Must include columns
         for ["u", "v", "w", "c", "q", "T", "P"]. Normally, dataframe
         should have a datetime index. Dataframe may include also boolean
@@ -60,8 +62,8 @@ class HFData(object):
 
     """
 
-    def __init__(self, dataframe):
-        self.dataframe = dataframe
+    def __init__(self, hf_dataframe):
+        self.dataframe = hf_dataframe
         self._already_corrected_external = False
 
     def __getitem__(self, name):
@@ -203,6 +205,8 @@ class HFDataSource(object):
 
     Parameters
     ----------
+    files : list or sequence of files
+        Sorted sequence of data files
     filetype : {'csv', 'tob1'}
         'csv' = delimited text file; 'tob1' = Campbell Scientific binary
         format file.
@@ -234,6 +238,7 @@ class HFDataSource(object):
 
     def __init__(
         self,
+        files,
         filetype,
         cols,
         converters=None,
@@ -246,73 +251,13 @@ class HFDataSource(object):
         elif not isinstance(flags, list):
             flags = [flags]
 
+        self._files = files
         self._filetype = filetype.strip().lower()
         self._cols = cols
         self._converters = {} if converters is None else converters
         self._time_col = time_col
         self._flags = flags
-        self._csvformat_kws = kwargs
-
-    def _buffered_read(self, datafiles, **kwargs):
-        """Generator providing read of data split across files.
-
-        Yields data in file-sized chunks in dataframe format.
-
-        Parameters
-        ----------
-        datafiles : list of str
-            Time-sorted list of datafiles to be read.
-        **kwargs
-            Passed to :class:`~fluxpart.hfdata.HFDataSource._readfile`.
-            'df_output' is ignored.
-
-        """
-        kws = deepcopy(kwargs)
-        # Ensure we are getting dataframes and not HFData
-        kws["df_output"] = True
-        for dfile in datafiles:
-            try:
-                yield self._readfile(dfile, **kws)
-            except HFDataReadError:
-                # TODO: raise Warning
-                pass
-
-    def _chunk(self, buffered_io, chunk_interval):
-        """Consume time-indexed data stream; yield time-chunked data.
-
-        Incoming stream is a buffered, time-indexed dataframe. Chunks
-        are yielded as a tuple: (datetime, dataframe)
-
-        """
-        df = next(buffered_io)
-        dataframes = [df]
-        current_interval = df.index[0].floor(chunk_interval)
-        for frame in buffered_io:
-            dataframes.append(frame)
-            if frame.index[-1].floor(chunk_interval) == current_interval:
-                continue
-
-            # If we reach here, then at least one new interval has been
-            # found. We yield sequentially all read intervals except the
-            # last one because more of that interval could still be
-            # coming
-
-            df = pd.concat(dataframes)
-            gdf = df.groupby(df.index.floor(chunk_interval))
-            group = iter(gdf)
-            for _ in range(len(gdf) - 1):
-                yield next(group)
-            current_interval, df = next(group)
-            dataframes = [df]
-
-        # Yield remaining intervals. Should always be at least one.
-        # Can be more if buffered_io contains only one item and loop is
-        # skipped with chunk_interval < time span of buffered file.
-
-        df = pd.concat(dataframes)
-        gdf = df.groupby(df.index.floor(chunk_interval))
-        for interval, group in gdf:
-            yield interval, group
+        self._csv_kws = kwargs
 
     @property
     def _names(self):
@@ -328,40 +273,20 @@ class HFDataSource(object):
             namecols["Datetime"] = self._time_col
         return namecols
 
-    def _peektime(self, fname):
-        try:
-            if self._filetype == "csv":
-                df = self._read_csv(fname, nrows=1)
-            elif self._filetype in ("tob", "tob1"):
-                df = self._read_tob1(fname, count=5)
-            elif self._filetype == "pd.df":
-                df = fname
-            else:
-                raise HFDataReadError("Unknown file type")
-        except Exception as err:
-            raise HFDataReadError(err.args[0])
-        return df.index[0]
+    def reader(self, interval, **kwargs):
+        """Consume data source and yield in chunks of the time interval.
 
-    def reader(self, file_or_dir, interval, ext="", **kwargs):
-        """Generator that reads high frequency eddy covariance data.
-
-        Returns a generator that when iterated produces data chunked by
-        time interval.
+        Data chunks are returned in dataframe format.
 
         Parameters
         ----------
-        file_or_dir : str or list of str
-            High frequency data file, data directory, or list of either.
         interval : str
-            Time interval used to partition data. The interval is
-            specified using the pandas string alias_ format
-            (e.g., ``interval="30min"``).
-        ext : str, optional
-            When `file_or_dir` refers to a directory, all files in the
-            directory with extension `ext` will be read. Default ("")
-            reads all files regardless of extension. When specifying
-            `ext`, include the 'dot' where appropriate (e.g.,
-            ``ext=".dat"``)
+            Time interval used to chunk the data. Is specified using the
+            pandas string alias_ format (e.g., ``interval="30min"``).
+            If set to -1, a single dataframe corresponding to a
+            concatenation of all data files is returned on the first
+            iteration. If set to None, dataframes corresponding to whole
+            individual data files are returned with each iteration.
         **kwargs
             For csv filetype, kwargs are passed to pandas.read_csv_.
             Can be used to override or add to formatting specified in
@@ -382,117 +307,48 @@ class HFDataSource(object):
             http://pandas.pydata.org/pandas-docs/stable/timeseries.html#offset-aliases
 
         """
-        if isinstance(file_or_dir, str):
-            file_or_dir = [file_or_dir]
-        if os.path.isfile(file_or_dir[0]):
-            kind = "file"
-        elif os.path.isdir(file_or_dir[0]):
-            kind = "dir"
-        else:
-            raise HFDataReadError("Unable to infer data type")
-        if kind.lower() == "dir":
-            unsorted_files = []
-            for p in file_or_dir:
-                unsorted_files += glob(os.path.join(p, "*" + ext))
-        elif kind.lower() == "file":
-            unsorted_files = file_or_dir
 
-        timesfiles = [(self._peektime(f), f) for f in unsorted_files]
-        timesfiles.sort(key=lambda p: p[0])
-        times, sorted_files = zip(*timesfiles)
-        buff_io = self._buffered_read(sorted_files, **kwargs)
-        yield from self._chunk(buff_io, interval)
+        if self._filetype == "csv":
+            kws = {**self._csv_kws, **kwargs}
+            kws["usecols"] = self._usecols
+            kws["header"] = None
+            dfs = util.multifile_read_csv(self._files, **kws)
+            indx_dfs = (self._set_indices_csv(df) for df in dfs)
+        else:  # "tob1"
+            count = kwargs.get("count", -1)
+            dfs = util.multifile_read_tob1(self._files, count=count)
+            indx_dfs = (self._set_indices_tob1(df) for df in dfs)
 
-    def _readfile(
-        self, fname, df_output=True, units=True, flags=True, **kwargs
-    ):
-        """Read a single high frequency eddy covariance data file.
+        si_dfs = (self._set_units(df) for df in indx_dfs)
+        hf_dfs = (self._set_flags(df) for df in si_dfs)
+        yield from util.chunked_df(hf_dfs, interval)
 
-        Defaults: read using format specified in the initializer; unit
-        conversion is applied to eddy covariance data; flag columns are
-        converted to mask booleans (True => masked).
-
-        Parameters
-        ----------
-        fname : str
-            Filename.
-        df_output : bool
-            Return dataframe if True (default), HFData object if False
-        units : bool
-            Apply SI unit conversion to EC data if True (default).
-            Ignored if `df_output` is False.
-        flags : bool
-            Convert flag columns to boolean mask (True => masked).
-            Ignored if `df_output` is False.
-        **kwargs
-            For csv filetype, kwargs are passed to pandas.read_csv_.
-            Can be used to override or add to formatting specified in
-            the initializer. Should not include `usecols`  or `header`
-            keywords. For tob1 filetype, kwargs is passed to
-            numpy.fromfile_. In this case, the only allowable kwarg is
-            'count', which can be used to limit the number of lines
-            read.
-
-
-        .. _numpy.fromfile
-            https://docs.scipy.org/doc/numpy/reference/generated/numpy.fromfile.html
-
-        .. _pandas.read_csv:
-            https://pandas.pydata.org/pandas-docs/stable/generated/pandas.read_csv.html
-
-        """
-        try:
-            if self._filetype == "csv":
-                dataframe = self._read_csv(fname, **kwargs)
-            elif self._filetype in ("tob", "tob1"):
-                dataframe = self._read_tob1(fname, **kwargs)
-            elif self._filetype == "pd.df":
-                dataframe = self._read_df(fname)
-            else:
-                raise HFDataReadError("Unknown file type")
-        except Exception as err:
-            raise HFDataReadError(err.args[0])
-
-        if units or not df_output:
-            dataframe = self._unit_convert(dataframe)
-        if flags or not df_output:
-            for col, val in self._flags:
-                dataframe.loc[:, "flag-" + str(col)] = (
-                    dataframe.loc[:, "flag-" + str(col)] != val
-                )
-        if df_output:
-            return dataframe
-        return HFData(dataframe)
-
-    def _read_csv(self, csvfile, **kwargs):
-        df = pd.read_csv(
-            csvfile,
-            usecols=self._usecols,
-            header=None,
-            **{**self._csvformat_kws, **kwargs},
-        )
+    def _set_indices_csv(self, df):
         df.columns = self._names
-        if self._time_col is not None:
-            df["Datetime"] = pd.to_datetime(df.iloc[:, self._time_col])
-            df = df.set_index("Datetime")
-        return df
+        if self._time_col is None:
+            return df
+        df["Datetime"] = pd.to_datetime(df.loc[:, "Datetime"])
+        return df.set_index("Datetime")
 
-    def _read_df(self, df):
-        df = df.iloc[:, self._usecols]
-        df.columns = self._names
-        return df
-
-    def _read_tob1(self, tobfile, count=-1):
-        df = pd.DataFrame(util.tob1_to_array(tobfile, count))
+    def _set_indices_tob1(self, df):
         df["Datetime"] = pd.to_datetime(
             arg=df.loc[:, "SECONDS"] + 10 ** -9 * df.loc[:, "NANOSECONDS"],
             unit="s",
             origin="1990-01-01",
         )
         df = df.set_index("Datetime")
-        return self._read_df(df)
+        df = df.iloc[:, self._usecols]
+        df.columns = self._names
+        return df
 
-    def _unit_convert(self, df):
+    def _set_flags(self, df):
+        for col, val in self._flags:
+            df.loc[:, "flag-" + str(col)] = (
+                df.loc[:, "flag-" + str(col)] != val
+            )
+        return df
+
+    def _set_units(self, df):
         for var, func in self._converters.items():
             df.loc[:, var] = func(df.loc[:, var])
         return df

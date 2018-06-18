@@ -3,6 +3,7 @@ from itertools import permutations
 from math import exp
 
 import numpy as np
+import pandas as pd
 import pywt
 
 from .constants import MOLECULAR_WEIGHT as MW  # kg/mol
@@ -17,7 +18,79 @@ NP_TYPE = {
 }
 
 
-def tob1_to_array(tobfile, count=-1):
+def chunked_df(dataframes, time_interval):
+    """Partition time-indexed dataframe sequence into time intervals."""
+
+    if time_interval == -1:
+        yield pd.concat(dataframes)
+        return
+    if time_interval is None:
+        for df in dataframes:
+            yield df
+        return
+
+    next_df = next(dataframes)
+    consumed_dfs = [next_df]
+    current_interval = next_df.index[0].floor(time_interval)
+    for next_df in dataframes:
+        consumed_dfs.append(next_df)
+        if next_df.index[-1].floor(time_interval) == current_interval:
+            continue
+
+        # If we reach here, then at least one new interval has been
+        # found. We yield sequentially all read intervals except the
+        # last one because more of that interval could still be
+        # coming
+
+        df = pd.concat(consumed_dfs)
+        gdf = df.groupby(df.index.floor(time_interval))
+        group = iter(gdf)
+        for _ in range(len(gdf) - 1):
+            interval, chunk = next(group)
+            yield chunk
+        current_interval, next_df = next(group)
+        consumed_dfs = [next_df]
+
+    # Yield remaining chunks. Should always be at least one.
+    # Can be more if the main loop is skipped (len(dataframes)=1)
+    # and time_interval < time span of the single dataframe
+
+    df = pd.concat(consumed_dfs)
+    gdf = df.groupby(df.index.floor(time_interval))
+    for interval, chunk in gdf:
+        yield chunk
+
+
+def multifile_read_csv(files, *args, **kwargs):
+    """Buffered pd.read_csv of data split across multiple files."""
+    for file_ in files:
+        try:
+            df = pd.read_csv(file_, *args, **kwargs)
+        except Exception:
+            # TODO: raise warning
+            continue
+        if isinstance(df, pd.io.parsers.TextFileReader):
+            yield from df
+        else:
+            yield df
+
+
+def multifile_read_tob1(tobfiles, count=-1):
+    """Buffered read of multiple tob1 files into dataframes."""
+    for tobfile in tobfiles:
+        try:
+            df = dataframe_read_tob1(tobfile, count)
+        except Exception:
+            # TODO: raise warning
+            continue
+        yield df
+
+
+def dataframe_read_tob1(tobfile, count=-1):
+    return pd.DataFrame(ndarray_read_tob1(tobfile, count))
+
+
+def ndarray_read_tob1(tobfile, count=-1):
     """Read TOB1 data file into structured numpy array."""
     with open(tobfile, "rb") as f:
         f.readline()

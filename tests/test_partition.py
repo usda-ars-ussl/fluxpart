@@ -66,7 +66,7 @@ def test_fvspart_interval():
         corr_qc=-.9501656,
     )
     massfluxes, fvsp = fvspart_interval(qcdata, wue)
-    assert fvsp.rootsoln.isvalid
+    assert fvsp.rootsoln.valid_root
 
     # comparable to Ray Anderson peach data, 2012-06-07 0230
     # The valid solution in this case uses the '-' CO2 root
@@ -79,11 +79,11 @@ def test_fvspart_interval():
         corr_qc=0.8886955,
     )
     massfluxes, fvsp = fvspart_interval(qcdata, wue)
-    assert fvsp.rootsoln.isvalid
+    assert fvsp.rootsoln.valid_root
 
 
 def assert_partition(fluxes, fvsp, desired):
-    if fvsp.rootsoln.isvalid:
+    if fvsp.rootsoln.valid_root:
         npt.assert_allclose(fvsp.rootsoln.var_cp, desired.var_cp, atol=1e-14)
         npt.assert_allclose(
             fvsp.rootsoln.corr_cp_cr, desired.corr_cp_cr, atol=1e-2

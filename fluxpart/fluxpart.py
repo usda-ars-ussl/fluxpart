@@ -1,13 +1,24 @@
 from copy import deepcopy
+import datetime as pydatetime
+from glob import glob
 import os
 
 import attr
+
+# import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 
 from .__version__ import __version__
 from .wue import water_use_efficiency, WUEError
-from .hfdata import HFData, HFDataSource, HFDataReadError, TooFewDataError
-from .partition import fvspart_progressive
+from .hfdata import (
+    HFData,
+    HFSummary,
+    HFDataSource,
+    HFDataReadError,
+    TooFewDataError,
+)
+from .partition import fvspart_progressive, FVSPSolution
 from .util import vapor_press_deficit
 from .containers import AllFluxes, WUE
 
@@ -46,11 +57,31 @@ HFD_OPTIONS = {
     "correct_external": True,
 }
 
-PART_OPTIONS = dict(adjust_fluxes=True, sun=None)
+PART_OPTIONS = dict(adjust_fluxes=True, sunrise=None, sunset=None)
 
 _bad_ustar = "ustar = {:.4} is less than ustar_tol = {:.4}"
 _bad_vpd = "Incompatible vapor pressure deficit (vpd = {} <= 0)"
 _bad_qflux = "Fq = cov(w,q) = {:.4} <= 0 is incompatible with fvs partitioning"
+_fp_result_str = (
+    "===============\n"
+    "Fluxpart Result\n"
+    "===============\n"
+    "fluxpart version = {version}\n"
+    "time = {timenow}\n"
+    "---------------\n"
+    "dataread = {dataread}\n"
+    "attempt_partition = {attempt_partition}\n"
+    "partition_success = {partition_success}\n"
+    "mssg = {mssg}\n"
+    "label = {label}\n"
+    + AllFluxes().results_str()
+    + "\n"
+    + HFSummary().results_str()
+    + "\n"
+    + WUE().results_str()
+    + "\n"
+    + FVSPSolution().results_str()
+)
 
 
 class Error(Exception):
@@ -145,28 +176,43 @@ def fvspart(
             hfdat, hfsum = _set_hfdata(hfdat, **hfd_options)
         except TooFewDataError as e:
             results.append(
-                FluxpartResult(label=label, mssg=e.args[0], dataread=True)
+                FluxpartResult(
+                    label=datetime,
+                    mssg=e.args[0],
+                    dataread=True,
+                    partition_success="NA",
+                )
             )
             continue
 
-        if part_options["sun"]:
-            sunrise, sunset = part_options["sun"]
+        sunrise, sunset = pydatetime.time.min, pydatetime.time.max
+        if part_options["sunrise"]:
+            sunrise = part_options["sunrise"]
             if callable(sunrise):
                 sunrise = sunrise(date)
+            sunrise = pd.to_datetime(sunrise)
+            # shift so that we partition if sunrise occurs during interval
+            sunrise = (sunrise - pd.Timedelta(interval)).time()
+        if part_options["sunset"]:
+            sunset = part_options["sunset"]
             if callable(sunset):
                 sunset = sunset(date)
-            if time < sunrise or time > sunset:
-                fluxes = AllFluxes(_set_all_nonstomatal_fluxes(hfsum), hfsum.T)
-                results.append(
-                    FluxpartResult(
-                        label=label,
-                        valid_partition=True,
-                        mssg="Night time; fluxes assumed to be non-stomatal",
-                        dataread=True,
-                        fluxes=fluxes,
-                    )
+            sunset = pd.to_datetime(sunset).time()
+        if (time < sunrise or time > sunset) and hfsum.cov_w_c >= 0:
+            fluxes = AllFluxes(
+                temper_kelvin=hfsum.T, **_set_all_fluxes_nonstomatal(hfsum)
+            )
+            results.append(
+                FluxpartResult(
+                    label=datetime,
+                    partition_success="NA",
+                    mssg="Non-stomatal fluxes assumed due to time of day",
+                    dataread=True,
+                    fluxes=fluxes,
+                    hfsummary=hfsum,
                 )
-                continue
+            )
+            continue
 
         try:
             if meas_wue:
@@ -178,7 +224,13 @@ def fvspart(
         except WUEError as e:
             results.append(
                 FluxpartResult(
-                    label=label, mssg=e.args[0], dataread=True, hfsummary=hfsum
+                    label=datetime,
+                    mssg=e.args[0],
+                    dataread=True,
+                    hfsummary=hfsum,
+                    fluxes=AllFluxes(
+                        **_set_only_total_fluxes(hfsum), temper_kelvin=hfsum.T
+                    ),
                 )
             )
 
@@ -193,27 +245,29 @@ def fvspart(
         if fvsp.valid_partition:
             fluxes = AllFluxes(**attr.asdict(fluxes), temper_kelvin=hfsum.T)
         else:
-            fvsp.fluxes = None
+            fluxes = AllFluxes(
+                **_set_only_total_fluxes(hfsum), temper_kelvin=hfsum.T
+            )
 
         results.append(
             FluxpartResult(
-                label=label,
+                label=datetime,
                 dataread=True,
                 attempt_partition=True,
                 fluxes=fluxes,
-                valid_partition=fvsp.valid_partition,
+                partition_success=fvsp.valid_partition,
                 mssg=fvsp.mssg,
-                fvsp_result=fvsp,
+                fvsp_solution=fvsp,
                 hfsummary=hfsum,
                 wue=leaf_wue,
             )
         )
 
-    return results
+    return FluxpartResultSeries(results)
 
 
 def _set_all_fluxes_nonstomatal(hfsum):
-    return MassFluxes(
+    return dict(
         Fq=hfsum.cov_w_q,
         Fqt=0.,
         Fqe=hfsum.cov_w_q,
@@ -223,13 +277,23 @@ def _set_all_fluxes_nonstomatal(hfsum):
     )
 
 
+def _set_only_total_fluxes(hfsum):
+    return dict(
+        Fq=hfsum.cov_w_q,
+        Fqt=np.nan,
+        Fqe=np.nan,
+        Fc=hfsum.cov_w_c,
+        Fcp=np.nan,
+        Fcr=np.nan,
+    )
+
+
 def _set_hfdata(hfdata, bounds, rd_tol, ad_tol, correct_external, ustar_tol):
     hfdata.cleanse(bounds, rd_tol, ad_tol)
     hfdata.truncate_pow2()
     if correct_external:
         hfdata.correct_external()
     hfsum = hfdata.summarize()
-
     if hfsum.ustar < ustar_tol:
         raise FluxpartError(_bad_ustar.format(hfsum.ustar, ustar_tol))
     vpd = vapor_press_deficit(hfsum.rho_vapor, hfsum.T)
@@ -251,27 +315,28 @@ class FluxpartResult(object):
         self,
         dataread=False,
         attempt_partition=False,
-        valid_partition=False,
+        partition_success=False,
         mssg=None,
-        fluxes=None,
         label=None,
-        hfsummary=None,
-        wue=None,
-        fvsp_result=None,
+        fluxes=AllFluxes(),
+        hfsummary=HFSummary(),
+        wue=WUE(),
+        fvsp_solution=FVSPSolution(),
     ):
         """Fluxpart result.
 
         Parameters
         ----------
-        dataread, attempt_partition, valid_partition : bool
+        dataread, attempt_partition, partition_success : bool
             Indicates success or failure in reading high frequency data,
             attempting and obtaining a valid partioning solution.
         mssg : str
-            Possibly informative message if `dataread` or `valid_partition`
+            Possibly informative message if `dataread` or `partition_success`
             are False
         label : optional
-            Optional id label. Could be, e.g. a datetime object or string.
-        fvsp_result : :class:`~fluxpart.containers.FVSPResult`
+            Pandas datetime.
+        fluxes : :class:`~fluxpart.containers.AllFluxes`
+        fvsp_solution : :class:`~fluxpart.containers.FVSPResult`
         wue : :class:`~fluxpart.containers.WUE`
         hfsummary : :class:`~fluxpart.hfdata.HFSummary`
 
@@ -279,34 +344,110 @@ class FluxpartResult(object):
         self.version = __version__
         self.dataread = dataread
         self.attempt_partition = attempt_partition
-        self.valid_partition = valid_partition
+        self.partition_success = partition_success
         self.mssg = mssg
         self.fluxes = fluxes
         self.label = label
-        self.fvsp_result = fvsp_result
+        self.fvsp_solution = fvsp_solution
         self.wue = wue
         self.hfsummary = hfsummary
 
     def __str__(self):
-        result = (
-            "===============\n"
-            "Fluxpart Result\n"
-            "===============\n"
-            f"version = {self.version}\n"
-            f"dataread = {self.dataread}\n"
-            f"attempt_partition = {self.attempt_partition}\n"
-            f"valid_partition = {self.valid_partition}\n"
-            f"mssg = {self.mssg}\n"
+        fluxpart = attr.asdict(self.fvsp_solution)
+        wqc_data = fluxpart.pop("wqc_data")
+        rootsoln = fluxpart.pop("rootsoln")
+        return _fp_result_str.format(
+            timenow=pydatetime.datetime.now(),
+            version=self.version,
+            dataread=self.dataread,
+            attempt_partition=self.attempt_partition,
+            partition_success=self.partition_success,
+            mssg=self.mssg,
+            label=self.label,
+            **attr.asdict(self.fluxes),
+            **attr.asdict(self.hfsummary),
+            **attr.asdict(self.wue),
+            **fluxpart,
+            **wqc_data,
+            **rootsoln,
         )
-        if self.fvsp_result is not None:
-            result += self.fvsp_result.__str__() + "\n"
-        if self.fluxes is not None:
-            result += self.fluxes.__str__() + "\n"
-        if self.wue is not None:
-            result += self.wue.__str__() + "\n"
-        if self.hfsummary is not None:
-            result += self.hfsummary.__str__()
-        return result
+
+
+class FluxpartResultSeries(object):
+    def __init__(self, results):
+        index = pd.DatetimeIndex(r.label for r in results)
+        df0 = pd.DataFrame(
+            (r.fluxes.common_units() for r in results), index=index
+        )
+        df1 = pd.DataFrame(
+            (r.hfsummary.common_units() for r in results), index=index
+        )
+        df2 = pd.DataFrame(
+            (r.wue.common_units() for r in results), index=index
+        )
+        df3 = pd.DataFrame(
+            (r.fvsp_solution.common_units() for r in results), index=index
+        )
+        df4 = pd.DataFrame(
+            {
+                "version": [r.version for r in results],
+                "dataread": [r.dataread for r in results],
+                "attempt_partition": [r.attempt_partition for r in results],
+                "partition_success": [r.partition_success for r in results],
+                "mssg": [r.mssg for r in results],
+            },
+            index=index,
+        )
+        self.df = pd.concat(
+            [df0, df1, df2, df3, df4],
+            axis=1,
+            keys=["fluxes", "hfsummary", "wue", "fvsp_solution", "fluxpart"],
+        )
+
+    def plot_Fc(self, **kws):
+        ax = self.df["fluxes"][["Fc", "Fcp", "Fcr"]].plot(**kws)
+        ax.set_ylabel(r"CO2 $[\mathrm{mg/m^2/s}]$")
+        return ax
+
+    def plot_Fc_mol(self, **kws):
+        ax = self.df["fluxes"][["Fc_mol", "Fcp_mol", "Fcr_mol"]].plot(**kws)
+        ax.set_ylabel(r"CO2 $[\mathrm{umol/m^2/s}]$")
+        ax.legend(["Fc", "Fcp", "Fcr"])
+        return ax
+
+    def plot_Fq(self, **kws):
+        ax = self.df["fluxes"][["Fq", "Fqe"]].plot(**kws)
+        ax.set_ylabel(r"H2O $[\mathrm{g/m^2/s}]$")
+        ax.legend(["Evapotranspiration", "Evaporation"])
+        return ax
+
+    def plot_Fq_mol(self, **kws):
+        ax = self.df["fluxes"][["Fq_mol", "Fqe_mol"]].plot(**kws)
+        ax.set_ylabel(r"H2O $[\mathrm{mmol/m^2/s}]$")
+        ax.legend(["Evapotranspiration", "Evaporation"])
+        return ax
+
+    def plot_LE(self, **kws):
+        ax = self.df["fluxes"][["LE", "LEe"]].plot(**kws)
+        ax.set_ylabel(r"LE $[\mathrm{W/m^2}]$")
+        ax.legend(["LE", "LE-evap"])
+        return ax
+
+    def iresult(self, i):
+        """Return a str represenation of the ith result"""
+        return _fp_result_str.format(
+            timenow=pydatetime.datetime.now(),
+            label=self.df.index[i],
+            **self.df.iloc[i]["fluxpart"].to_dict(),
+            **self.df.iloc[i]["fluxes"].to_dict(),
+            **self.df.iloc[i]["fvsp_solution"].to_dict(),
+            **self.df.iloc[i]["hfsummary"].to_dict(),
+            **self.df.iloc[i]["wue"].to_dict(),
+        )
+
+    def tsplot(self, indx, **kws):
+        ax = self.df.loc[:, indx].plot(**kws)
+        return ax
 
 
 def _converter_func(slope, intercept):

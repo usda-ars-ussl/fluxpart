@@ -1,10 +1,17 @@
 import io
+from unittest import TestCase
+
 import numpy as np
 import numpy.testing as npt
 import pandas as pd
 from pandas.util.testing import assert_frame_equal
 
-from fluxpart.util import stats2, multifile_read_csv, chunked_df
+from fluxpart.util import (
+    stats2,
+    multifile_read_csv,
+    chunked_df,
+    HFDataReadWarning,
+)
 
 
 def test_stats2():
@@ -100,7 +107,24 @@ def test_chunked_df():
     assert df.index[-1] == pd.to_datetime("2000-01-03 01:00:00")
 
 
+def test_read_warning():
+    # not working
+    # see: https://bugs.python.org/issue29620
+    tc = TestCase()
+    with tc.assertWarns(HFDataReadWarning):
+        hfread_error()
+
+
+def hfread_error():
+    file1 = io.BytesIO("1,2,3\n4,5,6\n7,8,9\n10,11,12".encode())
+    file2 = io.BytesIO("13 14 15\n16,17,18\n19,20,21\n22,23,24".encode())
+    reader = multifile_read_csv([file1, file2], header=None)
+    for cnt, df in enumerate(reader):
+        pass
+
+
 if __name__ == "__main__":
     test_stats2()
     test_mulitifile_read_csv()
     test_chunked_df()
+    # test_read_warning()

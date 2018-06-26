@@ -11,10 +11,6 @@ meteorological quantities (SI units)::
     P = total air pressure (Pa)
 
 """
-from copy import deepcopy
-from glob import glob
-import os
-
 import attr
 import math
 import numpy as np
@@ -36,18 +32,17 @@ class HFDataReadError(Error):
 
 
 class TooFewDataError(Error):
-    def __init__(self, data_frac, rd_tol, len_max_slice, ad_tol):
-        self.message = (
-            "The longest contiguous run of valid data was too short:\n"
-            "(length data / total length) = {:.4} < rd_tol = {:.4}\n"
-            "and/or data length = {} < ad_tol = {}"
-            "".format(data_frac, rd_tol, len_max_slice, ad_tol)
-        )
+    pass
 
 
 VAR_NAMES = ["u", "v", "w", "c", "q", "T", "P"]
 
 _badfiletype = "File type not recognized ({})"
+_toofewdata = (
+    "The longest contiguous run of valid data was too short:\n"
+    "(length data / total length) = {frac:.4} < rd_tol = {rd_tol:.4}\n"
+    "OR data length = {N} < ad_tol = {ad_tol}"
+)
 
 
 class HFData(object):
@@ -124,7 +119,10 @@ class HFData(object):
         data_frac = len_max_slice / data.shape[0]
         if data_frac < rd_tol or len_max_slice < ad_tol:
             self.dataframe = None
-            raise TooFewDataError(data_frac, rd_tol, len_max_slice, ad_tol)
+            mssg = _toofewdata.format(
+                frac=data_frac, rd_tol=rd_tol, N=len_max_slice, ad_tol=ad_tol
+            )
+            raise TooFewDataError(mssg)
 
         self.dataframe = data.iloc[max_slice]
         return
@@ -414,38 +412,75 @@ class HFSummary(object):
     N = attr.ib(default=np.nan)
 
     def __str__(self):
+        # prints common units instead of SI
+        return self.results_str().format(**self.common_units())
 
-        # For some fields, print common units instead of SI
-        T = self.T - 273.15
-        P = 1e-3 * self.P
-        Pvap = 1e-3 * self.Pvap
-        rho_vapor = 1e3 * self.rho_vapor
-        rho_co2 = 1e6 * self.rho_co2
-        var_vapor = 1e6 * self.var_vapor
-        var_co2 = 1e12 * self.var_co2
-        cov_w_q = 1e3 * self.cov_w_q
-        cov_w_c = 1e6 * self.cov_w_c
-
+    def results_str(self):
+        lab = self.common_units_labels()
         return (
             "---------------\n"
             "HF Data Summary\n"
             "---------------\n"
-            f"T = {T:.4} C\n"
-            f"P = {P:.4} kPa\n"
-            f"Pvap = {Pvap:.4} kPa\n"
-            f"ustar = {self.ustar:.4} m/s\n"
-            f"wind_w = {self.wind_w:.4} m/s\n"
-            f"var_w = {self.var_w:.4} (m/s)^2\n"
-            f"rho_vapor = {rho_vapor:.4} g/m^3\n"
-            f"rho_co2 = {rho_co2:.4} mg/m^3\n"
-            f"var_vapor = {var_vapor:.4} (g/m^3)^2\n"
-            f"var_co2 = {var_co2:.4} (mg/m^3)^2\n"
-            f"corr_q_c = {self.corr_q_c:.4}\n"
-            f"cov_w_q = {cov_w_q:.4} g/m^2/s\n"
-            f"H = {self.H:.4} W/m^2\n"
-            f"cov_w_c = {cov_w_c:.4} mg/m^2/s\n"
-            f"rho_dryair = {self.rho_dryair:.4} kg/m^3\n"
-            f"rho_totair = {self.rho_totair:.4} kg/m^3\n"
-            f"cov_w_T = {self.cov_w_T:.4} C m/s\n"
-            f"N = {self.N}"
+            "  T = {T:.4} " + lab["T"] + "\n"
+            "  P = {P:.4} " + lab["P"] + "\n"
+            "  Pvap = {Pvap:.4} " + lab["Pvap"] + "\n"
+            "  ustar = {ustar:.4} " + lab["ustar"] + "\n"
+            "  wind_w = {wind_w:.4} " + lab["wind_w"] + "\n"
+            "  var_w = {var_w:.4} " + lab["var_w"] + "\n"
+            "  rho_vapor = {rho_vapor:.4} " + lab["rho_vapor"] + "\n"
+            "  rho_co2 = {rho_co2:.4} " + lab["rho_co2"] + "\n"
+            "  var_vapor = {var_vapor:.4} " + lab["var_vapor"] + "\n"
+            "  var_co2 = {var_co2:.4} " + lab["var_co2"] + "\n"
+            "  corr_q_c = {corr_q_c:.4} " + lab["corr_q_c"] + "\n"
+            "  cov_w_q = {cov_w_q:.4} " + lab["cov_w_q"] + "\n"
+            "  H = {H:.4} " + lab["H"] + "\n"
+            "  cov_w_c = {cov_w_c:.4} " + lab["cov_w_c"] + "\n"
+            "  rho_dryair = {rho_dryair:.4} " + lab["rho_dryair"] + "\n"
+            "  rho_totair = {rho_totair:.4} " + lab["rho_totair"] + "\n"
+            "  cov_w_T = {cov_w_T:.4} " + lab["cov_w_T"] + "\n"
+            "  N = {N:.0f} " + lab["N"]
+        )
+
+    def common_units(self):
+        return dict(
+            T=self.T - 273.15,
+            P=1e-3 * self.P,
+            Pvap=1e-3 * self.Pvap,
+            ustar=self.ustar,
+            wind_w=self.wind_w,
+            var_w=self.var_w,
+            rho_vapor=1e3 * self.rho_vapor,
+            rho_co2=1e6 * self.rho_co2,
+            var_vapor=1e6 * self.var_vapor,
+            var_co2=1e12 * self.var_co2,
+            corr_q_c=self.corr_q_c,
+            cov_w_q=1e3 * self.cov_w_q,
+            H=self.H,
+            cov_w_c=1e6 * self.cov_w_c,
+            rho_dryair=self.rho_dryair,
+            rho_totair=self.rho_totair,
+            cov_w_T=self.cov_w_T,
+            N=self.N,
+        )
+
+    def common_units_labels(self):
+        return dict(
+            T="C",
+            P="kPa",
+            Pvap="kPa",
+            ustar="m/s",
+            wind_w="m/s",
+            var_w="(m/s)^2",
+            rho_vapor="g/m^3",
+            rho_co2="mg/m^3",
+            var_vapor="(g/m^3)^2",
+            var_co2="(mg/m^3)^2",
+            corr_q_c="",
+            cov_w_q="g/m^2/s",
+            H="W/m^2",
+            cov_w_c="mg/m^2/s",
+            rho_dryair="kg/m^3",
+            rho_totair="kg/m^3",
+            cov_w_T="C m/s",
+            N="",
         )

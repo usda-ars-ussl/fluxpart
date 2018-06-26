@@ -31,12 +31,12 @@ def test_flux_partition():
     )
 
     matlab_fluxes = SimpleNamespace(
-        Fcp=-1.02807378762793e-6,
-        Fcr=0.402683101177712e-6,
-        Fqe=0.00500869036088203e-3,
-        Fqt=0.145615860044424e-3,
-        Fcp_mol=-23.3600042633021e-6,
-        Fcr_mol=9.14980916104776e-6,
+        Fcp=-1.02807378762793,
+        Fcr=0.402683101177712,
+        Fqe=0.00500869036088203,
+        Fqt=0.145615860044424,
+        Fcp_mol=-23.3600042633021,
+        Fcr_mol=9.14980916104776,
         LEe=12.1870591763138,
         LEt=354.310004313924,
     )
@@ -49,12 +49,10 @@ def test_flux_partition():
     #     "temper_unit": "C",
     # }
 
-    fvsp = fvs_partition(fname, wue_options=wue_data, hfd_format="ec-TOA5")[0]
+    fvsp = fvs_partition(fname, wue_options=wue_data, hfd_format="ec-TOA5")
 
-    npt.assert_allclose(
-        fvsp.fvsp_result.rootsoln.var_cp, 18.9272e-12, atol=1e-12
-    )
-    assert_flux_components(fvsp.fluxes, matlab_fluxes)
+    npt.assert_allclose(fvsp.df["fvsp_solution"]["var_cp"], 18.9272, atol=1)
+    assert_flux_components(fvsp.df["fluxes"], matlab_fluxes)
 
     # soln is obtained after some wavelet filtering
     fname = os.path.join(
@@ -62,31 +60,31 @@ def test_flux_partition():
     )
 
     matlab_fluxes = SimpleNamespace(
-        Fcp=-0.866856083109642e-6,
-        Fcr=0.353428894620522e-6,
-        Fqe=0.0124697200158396e-3,
-        Fqt=0.117438136138301e-3,
-        Fcp_mol=-23.1074540435422e-6,
-        Fcr_mol=10.6590633820467e-6,
+        Fcp=-0.866856083109642,
+        Fcr=0.353428894620522,
+        Fqe=0.0124697200158396,
+        Fqt=0.117438136138301,
+        Fcp_mol=-23.1074540435422,
+        Fcr_mol=10.6590633820467,
         LEe=35.6007693518818,
         LEt=335.283229492226,
     )
 
-    fvsp = fvs_partition(fname, wue_options=wue_data, hfd_format="ec-TOA5")[0]
+    fvsp = fvs_partition(fname, wue_options=wue_data, hfd_format="ec-TOA5")
 
     npt.assert_allclose(
-        fvsp.fvsp_result.rootsoln.var_cp, 15.2944e-12, atol=1e-12
+        fvsp.df.iloc[0]["fvsp_solution"]["var_cp"], 15.2944, atol=1
     )
-    assert_flux_components(fvsp.fluxes, matlab_fluxes)
+    assert_flux_components(fvsp.df.iloc[0]["fluxes"], matlab_fluxes)
 
 
 def assert_flux_components(calc, desired):
-    npt.assert_allclose(calc.Fcp, desired.Fcp, atol=0.5e-6)
-    npt.assert_allclose(calc.Fcr, desired.Fcr, atol=0.1e-6)
-    npt.assert_allclose(calc.Fqe, desired.Fqe, atol=0.01e-3)
-    npt.assert_allclose(calc.Fqt, desired.Fqt, atol=0.05e-3)
-    npt.assert_allclose(calc.Fcp_mol, desired.Fcp_mol, atol=10e-6)
-    npt.assert_allclose(calc.Fcr_mol, desired.Fcr_mol, atol=10e-6)
+    npt.assert_allclose(calc.Fcp, desired.Fcp, atol=0.5)
+    npt.assert_allclose(calc.Fcr, desired.Fcr, atol=0.1)
+    npt.assert_allclose(calc.Fqe, desired.Fqe, atol=0.01)
+    npt.assert_allclose(calc.Fqt, desired.Fqt, atol=0.05)
+    npt.assert_allclose(calc.Fcp_mol, desired.Fcp_mol, atol=10)
+    npt.assert_allclose(calc.Fcr_mol, desired.Fcr_mol, atol=10)
     npt.assert_allclose(calc.LEe, desired.LEe, atol=10)
     npt.assert_allclose(calc.LEt, desired.LEt, atol=50)
 

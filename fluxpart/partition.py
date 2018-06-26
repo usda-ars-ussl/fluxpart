@@ -50,9 +50,10 @@ def fvspart_progressive(w, q, c, wue, adjust_fluxes=True):
 
     for cnt, lowcut_wqc in enumerate(_progressive_lowcut(w, q, c)):
         wave_lvl = (max_decomp_lvl - cnt, max_decomp_lvl)
+
         fluxes, fvsp = fvspart_series(*lowcut_wqc, wue)
 
-        if fvsp.rootsoln.isvalid:
+        if fvsp.rootsoln.valid_root:
             if adjust_fluxes:
                 fluxes = _adjust_fluxes(fluxes, wue, wq_tot, wc_tot)
                 fvsp.valid_partition, fvsp.mssg = _isvalid_partition(fluxes)
@@ -60,7 +61,7 @@ def fvspart_progressive(w, q, c, wue, adjust_fluxes=True):
                 break
 
     fvsp.wave_lvl = wave_lvl
-    if not fvsp.rootsoln.isvalid:
+    if not fvsp.rootsoln.valid_root:
         fvsp.valid_partition = False
         fvsp.mssg = fvsp.rootsoln.mssg
     if not fvsp.valid_partition:
@@ -118,13 +119,14 @@ def fvspart_interval(wqc_data, wue, wipe_if_invalid=False):
 
     """
     rootsoln = findroot(wqc_data, wue)
-    if not rootsoln.isvalid:
-        return FVSPSolution(
+    if not rootsoln.valid_root:
+        fvsp = FVSPSolution(
             wqc_data=wqc_data,
             rootsoln=rootsoln,
             valid_partition=False,
-            mssg=rootsoln.mssg,
+            root_mssg=rootsoln.mssg,
         )
+        return MassFluxes, fvsp
     mass_fluxes = _mass_fluxes(
         var_cp=rootsoln.var_cp,
         corr_cp_cr=rootsoln.corr_cp_cr,
@@ -139,7 +141,7 @@ def fvspart_interval(wqc_data, wue, wipe_if_invalid=False):
         wqc_data=wqc_data,
         rootsoln=rootsoln,
         valid_partition=isvalid,
-        mssg=mssg,
+        fvsp_mssg=mssg,
     )
     return mass_fluxes, fvsps
 
@@ -231,8 +233,8 @@ def findroot(wqc_data, wue):
         var_cp=var_cp * 1e-12,
         sig_cr=sig_cr * 1e-6,
         co2soln_id=co2soln_id,
-        isvalid=valid_root,
-        mssg=valid_mssg,
+        valid_root=valid_root,
+        root_mssg=valid_mssg,
     )
 
 

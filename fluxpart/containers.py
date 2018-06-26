@@ -64,6 +64,15 @@ class AllFluxes(object):
     Fcp = attr.ib(default=np.nan)
     Fcr = attr.ib(default=np.nan)
     temper_kelvin = attr.ib(default=np.nan)
+    LE = attr.ib(default=False)
+    LEt = attr.ib(default=False)
+    LEe = attr.ib(default=False)
+    Fq_mol = attr.ib(default=False)
+    Fqt_mol = attr.ib(default=False)
+    Fqe_mol = attr.ib(default=False)
+    Fc_mol = attr.ib(default=False)
+    Fcp_mol = attr.ib(default=False)
+    Fcr_mol = attr.ib(default=False)
 
     def __attrs_post_init__(self):
         """Water vapor and CO2 fluxes.
@@ -78,83 +87,88 @@ class AllFluxes(object):
             CO2 fluxes expressed as mol/m^2/s.
 
         """
-        self.LE = qflux_mass_to_heat(self.Fq, self.temper_kelvin)
-        self.LEt = qflux_mass_to_heat(self.Fqt, self.temper_kelvin)
-        self.LEe = qflux_mass_to_heat(self.Fqe, self.temper_kelvin)
-        self.Fq_mol = qflux_mass_to_mol(self.Fq)
-        self.Fqt_mol = qflux_mass_to_mol(self.Fqt)
-        self.Fqe_mol = qflux_mass_to_mol(self.Fqe)
-        self.Fc_mol = cflux_mass_to_mol(self.Fc)
-        self.Fcp_mol = cflux_mass_to_mol(self.Fcp)
-        self.Fcr_mol = cflux_mass_to_mol(self.Fcr)
+        if self.LE is False:
+            self.LE = qflux_mass_to_heat(self.Fq, self.temper_kelvin)
+        if self.LEt is False:
+            self.LEt = qflux_mass_to_heat(self.Fqt, self.temper_kelvin)
+        if self.LEe is False:
+            self.LEe = qflux_mass_to_heat(self.Fqe, self.temper_kelvin)
+        if self.Fq_mol is False:
+            self.Fq_mol = qflux_mass_to_mol(self.Fq)
+        if self.Fqt_mol is False:
+            self.Fqt_mol = qflux_mass_to_mol(self.Fqt)
+        if self.Fqe_mol is False:
+            self.Fqe_mol = qflux_mass_to_mol(self.Fqe)
+        if self.Fc_mol is False:
+            self.Fc_mol = cflux_mass_to_mol(self.Fc)
+        if self.Fcp_mol is False:
+            self.Fcp_mol = cflux_mass_to_mol(self.Fcp)
+        if self.Fcr_mol is False:
+            self.Fcr_mol = cflux_mass_to_mol(self.Fcr)
 
     def __str__(self):
-        # For some fields, print common units instead of SI
-        row = "{:35}{}"
-        return "~~~~~~\n" "Fluxes\n" + "~~~~~~\n" + row.format(
-            "Fq = {:.4} g/m^2/s".format(1e3 * self.Fq),
-            "Fc = {:.4} mg/m^2/s\n".format(1e6 * self.Fc),
-        ) + row.format(
-            "Fqt = {:.4} g/m^2/s".format(1e3 * self.Fqt),
-            "Fcp = {:.4} mg/m^2/s\n".format(1e6 * self.Fcp),
-        ) + row.format(
-            "Fqe = {:.4} g/m^2/s".format(1e3 * self.Fqe),
-            "Fcr = {:.4} mg/m^2/s\n\n".format(1e6 * self.Fcr),
-        ) + row.format(
-            "Fq_mol = {:.4} mmol/m^2/s".format(1e3 * self.Fq_mol),
-            "Fc_mol = {:.4} umol/m^2/s\n".format(1e6 * self.Fc_mol),
-        ) + row.format(
-            "Fqt_mol = {:.4} mmol/m^2/s".format(1e3 * self.Fqt_mol),
-            "Fcp_mol = {:.4} umol/m^2/s\n".format(1e6 * self.Fcp_mol),
-        ) + row.format(
-            "Fqe_mol = {:.4} mmol/m^2/s".format(1e3 * self.Fqe_mol),
-            "Fcr_mol = {:.4} umol/m^2/s\n\n".format(1e6 * self.Fcr_mol),
-        ) + "LE  = {:.4} W/m^2\n".format(
-            self.LE
-        ) + "LEt = {:.4} W/m^2\n".format(
-            self.LEt
-        ) + "LEe = {:.4} W/m^2)".format(
-            self.LEe
+        # print common units instead of SI
+        return self.results_str().format(**self.common_units())
+
+    def results_str(self):
+        lab = self.common_units_labels()
+        return (
+            "------\n"
+            "Fluxes\n" + "------\n"
+            "  Fq = {Fq:.4} " + lab["Fq"] + "\n"
+            "  Fqt = {Fqt:.4} " + lab["Fqt"] + "\n"
+            "  Fqe = {Fqe:.4} " + lab["Fqe"] + "\n"
+            "  Fc = {Fc:.4} " + lab["Fc"] + "\n"
+            "  Fcp = {Fcp:.4} " + lab["Fcp"] + "\n"
+            "  Fcr = {Fcr:.4} " + lab["Fcr"] + "\n"
+            "  Fq_mol = {Fq_mol:.4} " + lab["Fq_mol"] + "\n"
+            "  Fqt_mol = {Fqt_mol:.4} " + lab["Fqt_mol"] + "\n"
+            "  Fqe_mol = {Fqe_mol:.4} " + lab["Fqe_mol"] + "\n"
+            "  Fc_mol = {Fc_mol:.4} " + lab["Fc_mol"] + "\n"
+            "  Fcp_mol = {Fcp_mol:.4} " + lab["Fcp_mol"] + "\n"
+            "  Fcr_mol = {Fcr_mol:.4} " + lab["Fcr_mol"] + "\n"
+            "  LE  = {LE:.4} " + lab["LE"] + "\n"
+            "  LEt = {LEt:.4} " + lab["LEt"] + "\n"
+            "  LEe = {LEe:.4} " + lab["LEe"]
         )
 
-
-@attr.s
-class FVSPSolution(object):
-    """Result of FVS partitioning.
-
-    Parameters
-    ----------
-     wave_lvl : (int, int)
-         2-tuple indicating the level of filtering applied (number of
-         components removed from the series data). The second int is the
-         maximum possible wavelet decompostion level given the length of
-         the data. The first is the number of components remaining in the
-         data.  So when the first number is equal to the second, no
-         components have been removed (no filtering applied). When the
-         first number is 1, the maximum level of filtering was applied.
-
-    """
-
-    wqc_data = attr.ib(default=None)
-    rootsoln = attr.ib(default=None)
-    wave_lvl = attr.ib(default=None)
-    valid_partition = attr.ib(default=False)
-    mssg = attr.ib(default=None)
-
-    def __str__(self):
-        result = (
-            "----------------\n"
-            "FVS Partitioning\n"
-            "----------------\n"
-            f"valid_partition: {self.valid_partition}\n"
-            f"mssg: {self.mssg}\n"
+    def common_units(self):
+        return dict(
+            Fq=1e3 * self.Fq,
+            Fc=1e6 * self.Fc,
+            Fqt=1e3 * self.Fqt,
+            Fcp=1e6 * self.Fcp,
+            Fqe=1e3 * self.Fqe,
+            Fcr=1e6 * self.Fcr,
+            Fq_mol=1e3 * self.Fq_mol,
+            Fc_mol=1e6 * self.Fc_mol,
+            Fqt_mol=1e3 * self.Fqt_mol,
+            Fcp_mol=1e6 * self.Fcp_mol,
+            Fqe_mol=1e3 * self.Fqe_mol,
+            Fcr_mol=1e6 * self.Fcr_mol,
+            LE=self.LE,
+            LEt=self.LEt,
+            LEe=self.LEe,
         )
-        if self.wqc_data is not None:
-            result += self.wqc_data.__str__() + "\n"
-        result += f"Wavelet filtering level: {self.wave_lvl}\n"
-        if self.rootsoln is not None:
-            result += self.rootsoln.__str__()
-        return result
+
+    def common_units_labels(self):
+        return dict(
+            Fq="g/m^2/s",
+            Fqt="g/m^2/s",
+            Fqe="g/m^2/s",
+            Fc="mg/m^2/s",
+            Fcp="mg/m^2/s",
+            Fcr="mg/m^2/s",
+            Fq_mol="mmol/m^2/s",
+            Fqt_mol="mmol/m^2/s",
+            Fqe_mol="mmol/m^2/s",
+            Fc_mol="umol/m^2/s",
+            Fcp_mol="umol/m^2/s",
+            Fcr_mol="umol/m^2/s",
+            LE="W/m^2",
+            LEt="W/m^2",
+            LEe="W/m^2",
+        )
 
 
 @attr.s
@@ -176,10 +190,10 @@ class RootSoln(object):
         Indicates the solution used for the quadratic Eq. 13b of
         [SS08]_. Equal to 1 for the '+' root, equal to 0 for the '-'
         root.
-    isvalid : bool
+    valid_root : bool
         Indicates whether the obtained root (`corr_cp_cr`, `var_cp`) is
         physically plausible.
-    mssg : str
+    root_mssg : str
         Possibly informative message if `isvalid` = False.
 
     """
@@ -188,21 +202,46 @@ class RootSoln(object):
     var_cp = attr.ib(default=np.nan)
     sig_cr = attr.ib(default=np.nan)
     co2soln_id = attr.ib(default=np.nan)
-    isvalid = attr.ib(default=False)
-    mssg = attr.ib(default="")
+    valid_root = attr.ib(default=np.nan)
+    root_mssg = attr.ib(default="")
 
-    def __str__(self):
-        # For some fields, print common units instead of SI
-        return (
-            "~~~~~~~~~~~~~\n"
-            "Root Solution\n"
-            "~~~~~~~~~~~~~\n"
-            + "corr_cp_cr = {:.4}\n".format(self.corr_cp_cr)
-            + "var_cp = {:.4} (mg/m^3)^2\n".format(1e12 * self.var_cp)
-            + "sig_cr = {:.4} mg/m^3\n".format(1e6 * self.sig_cr)
-            + "co2soln_id = {}\n".format(self.co2soln_id)
-            + "isvalid = {}\n".format(self.isvalid)
-            + "mssg = {}".format(self.mssg)
+    def __str__(self, head=True):
+        # Print common units instead of SI
+        return self.results_str(head).format(**self.common_units())
+
+    def results_str(self, head=True):
+        lab = self.common_units_labels()
+        out = ""
+        if head is True:
+            out += " ------------\nRoot Solution\n-------------\n"
+        out += (
+            "  corr_cp_cr = {corr_cp_cr:.4}\n"
+            "  var_cp = {var_cp:.4} " + lab["var_cp"] + "\n"
+            "  sig_cr = {sig_cr:.4} " + lab["sig_cr"] + "\n"
+            "  co2soln_id = {co2soln_id:.0f}\n"
+            "  valid_root = {valid_root}\n"
+            "  root_mssg = {root_mssg}"
+        )
+        return out
+
+    def common_units(self):
+        return dict(
+            corr_cp_cr=self.corr_cp_cr,
+            var_cp=1e12 * self.var_cp,
+            sig_cr=1e6 * self.sig_cr,
+            co2soln_id=self.co2soln_id,
+            valid_root=self.valid_root,
+            root_mssg=self.root_mssg,
+        )
+
+    def common_units_labels(self):
+        return dict(
+            corr_cp_cr="",
+            var_cp="(mg/m^3)^2",
+            sig_cr="mg/m^3",
+            co2soln_id="",
+            valid_root="",
+            root_mssg="",
         )
 
 
@@ -227,22 +266,96 @@ class WQCData(object):
     wq = attr.ib(default=np.nan)
     wc = attr.ib(default=np.nan)
 
-    def __str__(self):
-        # For some fields, print common units instead of SI
-        var_q = 1e6 * self.var_q
-        var_c = 1e12 * self.var_c
-        wq = 1e3 * self.wq
-        wc = 1e6 * self.wc
-        return (
-            "~~~~~~~~~~~~~~\n"
-            "Interval Stats\n"
-            "~~~~~~~~~~~~~~\n"
-            f"var_q = {var_q:.4} (g/m^3)^2\n"
-            f"var_c = {var_c:.4} (mg/m^3)^2\n"
-            f"corr_qc = {self.corr_qc:.4}\n"
-            f"<wq> = {wq:.4} g/m^2/s\n"
-            f"<wc> = {wc:.4} mg/m^2/s"
+    def __str__(self, head=True):
+        # Print common units instead of SI
+        return self.results_str(head).format(**self.common_units())
+
+    def results_str(self, head=True):
+        lab = self.common_units_labels()
+        out = ""
+        if head:
+            out += "--------------\nInterval Stats\n" "--------------\n"
+        out += (
+            "  var_q = {var_q:.4} " + lab["var_q"] + "\n"
+            "  var_c = {var_c:.4} " + lab["var_c"] + "\n"
+            "  corr_qc = {corr_qc:.4}\n"
+            "  cov_w_q = {wq:.4} " + lab["cov_w_q"] + "\n"
+            "  cov_w_c = {wc:.4} " + lab["cov_w_c"]
         )
+        return out
+
+    def common_units(self):
+        return dict(
+            var_q=1e6 * self.var_q,
+            var_c=1e12 * self.var_c,
+            corr_qc=self.corr_qc,
+            wq=1e3 * self.wq,
+            wc=1e6 * self.wc,
+        )
+
+    def common_units_labels(self):
+        return dict(
+            var_q="(g/m^3)^2",
+            var_c="(mg/m^3)^2",
+            corr_qc="",
+            cov_w_q="g/m^2/s",
+            cov_w_c="mg/m^2/s",
+        )
+
+
+@attr.s
+class FVSPSolution(object):
+    """Result of FVS partitioning.
+
+    Parameters
+    ----------
+     wave_lvl : (int, int)
+         2-tuple indicating the level of filtering applied (number of
+         components removed from the series data). The second int is the
+         maximum possible wavelet decompostion level given the length of
+         the data. The first is the number of components remaining in the
+         data.  So when the first number is equal to the second, no
+         components have been removed (no filtering applied). When the
+         first number is 1, the maximum level of filtering was applied.
+
+    """
+
+    wqc_data = attr.ib(default=WQCData())
+    rootsoln = attr.ib(default=RootSoln())
+    wave_lvl = attr.ib(default=np.nan)
+    valid_partition = attr.ib(default=np.nan)
+    fvsp_mssg = attr.ib(default="")
+
+    def __str__(self):
+        return self.results_str().format(
+            fvsp_mssg=self.fvsp_mssg,
+            valid_partition=self.valid_partition,
+            wave_lvl=self.wave_lvl,
+            **self.wqc_data,
+            **self.rootsoln,
+        )
+
+    def results_str(self):
+        result = (
+            "-------------\n"
+            "FVSP Solution\n"
+            "-------------\n"
+            "  valid_partition: {valid_partition}\n"
+            "  fvsp_mssg: {fvsp_mssg}\n"
+        )
+        result += "  Wavelet filtering level: {wave_lvl}\n"
+        result += self.wqc_data.results_str(head=False) + "\n"
+        result += self.rootsoln.results_str(head=False)
+        return result
+
+    def common_units(self):
+        return {
+            "valid_partition": self.valid_partition,
+            "fvsp_mssg": self.fvsp_mssg,
+            "wave_lvl": self.wave_lvl,
+            **self.wqc_data.common_units(),
+            **self.rootsoln.common_units(),
+        }
 
 
 @attr.s
@@ -291,31 +404,60 @@ class WUE:
     diff_ratio = attr.ib(default=np.nan)
 
     def __str__(self):
+        # Print common units instead of SI
+        return self.results_str().format(**self.common_units())
 
-        # For some fields, print common units instead of SI
-        wue = 1e3 * self.wue
-        inter_h2o = 1e3 * self.inter_h2o
-        inter_co2 = 1e6 * self.inter_co2
-        ambient_h2o = 1e3 * self.ambient_h2o
-        ambient_co2 = 1e6 * self.ambient_co2
-        vpd = 1e-3 * self.vpd
-        leaf_temper = self.leaf_temper - 273.15
-
+    def results_str(self):
+        lab = self.common_units_labels()
         return (
             "--------------------\n"
             "Water Use Efficiency\n"
             "--------------------\n"
-            f"wue = {wue:.4} mg/g,\n"
-            f"inter_h2o = {inter_h2o:.4} g/m^3,\n"
-            f"inter_co2 = {inter_co2:.4} mg/m^3,\n"
-            f"ambient_h2o = {ambient_h2o:.4} g/m^3,\n"
-            f"ambient_co2 = {ambient_co2:.4} mg/m^3,\n"
-            f"vpd = {vpd:.4} kPa,\n"
-            f"ci_mod = {self.ci_mod},\n"
-            f"ci_mod_param = {self.ci_mod_param},\n"
-            f"leaf_temper = {leaf_temper:.4} C,\n"
-            f"ppath = {self.ppath},\n"
-            f"meas_ht = {self.meas_ht} m,\n"
-            f"canopy_ht = {self.canopy_ht} m,\n"
-            f"diff_ratio = {self.diff_ratio:.4}"
+            "  wue = {wue:.4} " + lab["wue"] + "\n"
+            "  inter_h2o = {inter_h2o:.4} " + lab["inter_h2o"] + "\n"
+            "  inter_co2 = {inter_co2:.4} " + lab["inter_co2"] + "\n"
+            "  ambient_h2o = {ambient_h2o:.4} " + lab["ambient_h2o"] + "\n"
+            "  ambient_co2 = {ambient_co2:.4} " + lab["ambient_co2"] + "\n"
+            "  vpd = {vpd:.4} " + lab["vpd"] + "\n"
+            "  ci_mod = {ci_mod} " + lab["ci_mod"] + "\n"
+            "  ci_mod_param = {ci_mod_param} " + lab["ci_mod_param"] + "\n"
+            "  leaf_temper = {leaf_temper:.4} " + lab["leaf_temper"] + "\n"
+            "  ppath = {ppath} " + lab["ppath"] + "\n"
+            "  meas_ht = {meas_ht} " + lab["meas_ht"] + "\n"
+            "  canopy_ht = {canopy_ht} " + lab["canopy_ht"] + "\n"
+            "  diff_ratio = {diff_ratio:.4} " + lab["diff_ratio"]
+        )
+
+    def common_units(self):
+        return dict(
+            wue=1e3 * self.wue,
+            inter_h2o=1e3 * self.inter_h2o,
+            inter_co2=1e6 * self.inter_co2,
+            ambient_h2o=1e3 * self.ambient_h2o,
+            ambient_co2=1e6 * self.ambient_co2,
+            vpd=1e-3 * self.vpd,
+            ci_mod=self.ci_mod,
+            ci_mod_param=self.ci_mod_param,
+            leaf_temper=self.leaf_temper - 273.15,
+            ppath=self.ppath,
+            meas_ht=self.meas_ht,
+            canopy_ht=self.canopy_ht,
+            diff_ratio=self.diff_ratio,
+        )
+
+    def common_units_labels(self):
+        return dict(
+            wue="mg/g",
+            inter_h2o="g/m^3",
+            inter_co2="mg/m^3",
+            ambient_h2o="g/m^3",
+            ambient_co2="mg/m^3",
+            vpd="kPa",
+            ci_mod="",
+            ci_mod_param="",  # depends on the mod
+            leaf_temper="C",
+            ppath="",
+            meas_ht="m",
+            canopy_ht="m",
+            diff_ratio="",
         )

@@ -1,6 +1,7 @@
 from collections import namedtuple
 from itertools import permutations
 from math import exp
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -16,6 +17,10 @@ NP_TYPE = {
     "LONG": np.int32,
     "ULONG": np.uint32,
 }
+
+
+class HFDataReadWarning(UserWarning):
+    pass
 
 
 def chunked_df(dataframes, time_interval):
@@ -43,7 +48,8 @@ def chunked_df(dataframes, time_interval):
         # coming
 
         df = pd.concat(consumed_dfs)
-        gdf = df.groupby(df.index.floor(time_interval))
+        # gdf = df.groupby(df.index.floor(time_interval))
+        gdf = df.groupby(pd.Grouper(freq=time_interval))
         group = iter(gdf)
         for _ in range(len(gdf) - 1):
             interval, chunk = next(group)
@@ -66,8 +72,9 @@ def multifile_read_csv(files, *args, **kwargs):
     for file_ in files:
         try:
             df = pd.read_csv(file_, *args, **kwargs)
-        except Exception:
-            # TODO: raise warning
+        except Exception as e:
+            mssg = "Skipping file " + str(file_) + " because " + e.args[0]
+            warnings.warn(mssg, HFDataReadWarning)
             continue
         if isinstance(df, pd.io.parsers.TextFileReader):
             yield from df
@@ -80,8 +87,9 @@ def multifile_read_tob1(tobfiles, count=-1):
     for tobfile in tobfiles:
         try:
             df = dataframe_read_tob1(tobfile, count)
-        except Exception:
-            # TODO: raise warning
+        except Exception as e:
+            mssg = "Skipping file " + str(tobfile) + " because " + e.args[0]
+            warnings.warn(mssg, HFDataReadWarning)
             continue
         yield df
 

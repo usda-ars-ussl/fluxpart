@@ -1,17 +1,13 @@
 {% set name = "fluxpart" %}
-{% set version = "0.1.0" %}
-{% set file_ext = "tar.gz" %}
-{% set hash_type = "sha256" %}
-{% set hash_value = "e16efaf85b76f3e0f9452e71dadc6542bee519d9dd4c5182a317e0f123583225" %}
+{% set version = "0.2.0b" %}
 
 package:
   name: '{{ name|lower }}'
   version: '{{ version }}'
 
 source:
-  fn: '{{ name }}-{{ version }}.{{ file_ext }}'
-  url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.{{ file_ext }}
-  '{{ hash_type }}': '{{ hash_value }}'
+  git_rev: v0.2.0b
+  git_url: https://github.com/usda-ars-ussl/fluxpart.git
 
 build:
   number: 0
@@ -23,31 +19,31 @@ requirements:
     - setuptools
     - numpy
     - matplotlib
+    - pandas
     - pywavelets
+    - attrs
   run:
     - python
     - numpy
     - matplotlib
+    - pandas
     - pywavelets
+    - attrs
 
 test:
   imports:
     - fluxpart
   requires:
     - numpy
+    - pandas
 
 about:
   home: https://github.com/usda-ars-ussl/fluxpart
   license: Public Domain CC0
   license_family: PUBLIC-DOMAIN
-  license_file: ''
+  license_file: LICENSE
   summary: Module for partitioning eddy covariance flux measurements.
-  description: 'Python 3 module implementing the Scanlon and Sahu (2008) procedure for partitioning eddy covariance measurements of water vapor and carbon dioxide fluxes into stomatal (transpiration, photosynthesis)
-    and nonstomatal (evaporation, respiration) components.
-
-
-
-    '
+  description: 'Python 3 module implementing the Scanlon and Sahu (2008) procedure for partitioning eddy covariance measurements of water vapor and carbon dioxide fluxes into stomatal (transpiration, photosynthesis) and nonstomatal (evaporation, respiration) components.'
   doc_url: ''
   dev_url: ''
 

@@ -1,10 +1,10 @@
-name: fluxpart-env
+name: fp020b
 channels:
   - defaults
-  - ussl
+  - thskaggs
 dependencies:
-  - python=3.7
-  - fluxpart=0.2.0
+  - python=3.7.*
+  - fluxpart=0.2.*
   - ipython=6.5.*
   - jupyter=1.0.*
   - matplotlib=2.2.*
@@ -12,3 +12,4 @@ dependencies:
   - pandas=0.23.*
   - pytest=3.7.*
   - pywavelets=0.5.*
+  - attrs=18.*

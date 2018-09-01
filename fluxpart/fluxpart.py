@@ -1,11 +1,14 @@
 from copy import deepcopy
 import datetime as pydatetime
-from glob import glob
+from functools import lru_cache
+from glob import iglob
 import os
+import pickle
 
 import attr
 
-# import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 import numpy as np
 import pandas as pd
 
@@ -26,20 +29,22 @@ from .containers import AllFluxes, WUE
 EC_TOA5 = {
     "filetype": "csv",
     "skiprows": 4,
-    "cols": (2, 3, 4, 5, 6, 7, 8),
     "time_col": 0,
+    "cols": (2, 3, 4, 5, 6, 7, 8),
     "temper_unit": "C",
     "unit_convert": dict(q=1e-3, c=1e-6, P=1e3),
+    "na_values": "NAN"
 }
 
 EC_TOB1 = {
     "filetype": "tob1",
+    "time_col": 0,
     "cols": (3, 4, 5, 6, 7, 8, 9),
     "temper_unit": "C",
     "unit_convert": dict(q=1e-3, c=1e-6, P=1e3),
 }
 
-HFD_FORMAT = EC_TOB1
+HFD_FORMAT = EC_TOA5
 
 WUE_OPTIONS = {
     "ci_mod": "const_ratio",
@@ -57,23 +62,26 @@ HFD_OPTIONS = {
     "correct_external": True,
 }
 
-PART_OPTIONS = dict(adjust_fluxes=True, sunrise=None, sunset=None)
+PART_OPTIONS = dict(adjust_fluxes=True)
 
-_bad_ustar = "ustar = {:.4} is less than ustar_tol = {:.4}"
-_bad_vpd = "Incompatible vapor pressure deficit (vpd = {} <= 0)"
-_bad_qflux = "Fq = cov(w,q) = {:.4} <= 0 is incompatible with fvs partitioning"
+_bad_ustar = "ustar = {:.4} <= ustar_tol = {:.4}"
+_bad_vpd = "vpd = {:.4} Pa <= 0"
+_bad_qflux = "Fq = cov(w,q) = {:.4} <= 0"
+_night_mssg = "Nighttime, fluxes all non-stomatal"
 _fp_result_str = (
     "===============\n"
     "Fluxpart Result\n"
     "===============\n"
     "fluxpart version = {version}\n"
-    "time = {timenow}\n"
+    "date = {date}\n"
     "---------------\n"
     "dataread = {dataread}\n"
     "attempt_partition = {attempt_partition}\n"
     "partition_success = {partition_success}\n"
     "mssg = {mssg}\n"
     "label = {label}\n"
+    "sunrise = {sunrise}\n"
+    "sunset = {sunset}\n"
     + AllFluxes().results_str()
     + "\n"
     + HFSummary().results_str()
@@ -95,14 +103,16 @@ class FluxpartError(Error):
 
 def fvspart(
     file_or_dir,
-    ext="",
-    interval="30min",
+    time_sorted=False,
+    interval=None,
     hfd_format=None,
     hfd_options=None,
     meas_wue=None,
     wue_options=None,
     part_options=None,
     label=None,
+    stdout=True,
+    verbose=True,
 ):
     """Partition CO2 & H2O fluxes into stomatal & nonstomatal components.
 
@@ -133,9 +143,9 @@ def fvspart(
     """
     if hfd_format is None:
         hfd_format = deepcopy(HFD_FORMAT)
-    elif hfd_format.upper() == "EC-TOA5":
+    elif isinstance(hfd_format, str) and hfd_format.upper() == "EC-TOA5":
         hfd_format = deepcopy(EC_TOA5)
-    elif hfd_format.upper() == "EC-TOB1":
+    elif isinstance(hfd_format, str) and hfd_format.upper() == "EC-TOB1":
         hfd_format = deepcopy(EC_TOB1)
     else:
         hfd_format = deepcopy(hfd_format)
@@ -152,18 +162,49 @@ def fvspart(
         converters["T"] = _converter_func(1., 273.15)
     hfd_format["converters"] = converters
 
-    files = _files(file_or_dir, ext)
-    times = _peektime(files, **hfd_format)
-    sorted_files = [f for t, f in sorted(zip(times, files))]
+    if "heights" in wue_options:
+        if not callable(wue_options["heights"]):
+            wue_options["heights"] = (
+                _lookup(wue_options["heights"], 0, 1, 2)
+            )
+    if "daytime" in part_options:
+        # TODO: should work with file objects, not just str name
+        if isinstance(part_options["daytime"], str):
+            part_options["daytime"] = (
+                _lookup(part_options["daytime"], 0, 1, 2)
+            )
+
+    if meas_wue:
+        # TODO: should work with file objects, not just str name
+        if isinstance(meas_wue, str):
+            meas_wue = _lookup(meas_wue, 0, 1)
+
+    if stdout:
+        print("Getting filenames ...")
+    files = _files(file_or_dir)
+    if len(files) == 0:
+        print("No files found!")
+        return
+    if not time_sorted:
+        if stdout:
+            print("Reading {} file datetimes ...".format(len(files)))
+        times = _peektime(files, **hfd_format)
+        if stdout:
+            print("Time sorting data files ...")
+        sorted_files = [f for t, f in sorted(zip(times, files))]
+    if stdout:
+        print('Creating data source ...')
 
     reader = HFDataSource(sorted_files, **hfd_format).reader(interval=interval)
     results = []
+    if stdout:
+        print('Beginning partitioning analyses ...')
 
     while True:
         try:
             hfdat = HFData(next(reader))
         except HFDataReadError as e:
-            results.append(FluxpartResult(label=label, mssg=e.args[0]))
+            results.append(FVSResult(label=label, mssg=e.args[0]))
             continue
         except StopIteration:
             break
@@ -171,68 +212,88 @@ def fvspart(
         datetime = hfdat.dataframe.index[0]
         date = datetime.date()
         time = datetime.time()
+        if stdout:
+            print('Processing {}'.format(datetime))
+
+        sunrise, sunset = None, None
+        nighttime = False
+        if "daytime" in part_options:
+            if callable(part_options["daytime"]):
+                sunrise, sunset = part_options["daytime"](date)
+            else:
+                sunrise, sunset = part_options["daytime"]
+            sunrise = pd.to_datetime(sunrise).time()
+            sunset = pd.to_datetime(sunset).time()
+            # shift sunrise so we partition if rise occurs during interval
+            if interval:
+                sunrise = pd.Timestamp.combine(date, sunrise)
+                sunrise = (sunrise - pd.Timedelta(interval)).time()
+            nighttime = time < sunrise or time > sunset
 
         try:
             hfdat, hfsum = _set_hfdata(hfdat, **hfd_options)
-        except TooFewDataError as e:
+        except (TooFewDataError, FluxpartError) as e:
             results.append(
-                FluxpartResult(
+                FVSResult(
                     label=datetime,
                     mssg=e.args[0],
                     dataread=True,
-                    partition_success="NA",
+                    attempt_partition=False,
+                    partition_success=False,
+                    sunrise=sunrise,
+                    sunset=sunset,
                 )
             )
+            if stdout and verbose:
+                print(e.args[0])
             continue
 
-        sunrise, sunset = pydatetime.time.min, pydatetime.time.max
-        if part_options["sunrise"]:
-            sunrise = part_options["sunrise"]
-            if callable(sunrise):
-                sunrise = sunrise(date)
-            sunrise = pd.to_datetime(sunrise)
-            # shift so that we partition if sunrise occurs during interval
-            sunrise = (sunrise - pd.Timedelta(interval)).time()
-        if part_options["sunset"]:
-            sunset = part_options["sunset"]
-            if callable(sunset):
-                sunset = sunset(date)
-            sunset = pd.to_datetime(sunset).time()
-        if (time < sunrise or time > sunset) and hfsum.cov_w_c >= 0:
+        if nighttime and hfsum.cov_w_c >= 0:
             fluxes = AllFluxes(
                 temper_kelvin=hfsum.T, **_set_all_fluxes_nonstomatal(hfsum)
             )
+            mssg = _night_mssg
             results.append(
-                FluxpartResult(
+                FVSResult(
                     label=datetime,
-                    partition_success="NA",
-                    mssg="Non-stomatal fluxes assumed due to time of day",
+                    attempt_partition=False,
+                    partition_success=True,
+                    mssg=mssg,
                     dataread=True,
                     fluxes=fluxes,
                     hfsummary=hfsum,
+                    sunrise=sunrise,
+                    sunset=sunset,
                 )
             )
+            if stdout and verbose:
+                print(mssg)
             continue
 
         try:
             if meas_wue:
-                leaf_wue = WUE(wue=float(meas_wue))
+                if callable(meas_wue):
+                    leaf_wue = WUE(wue=meas_wue(datetime))
+                else:
+                    leaf_wue = WUE(wue=float(meas_wue))
             else:
                 leaf_wue = water_use_efficiency(
                     hfsum, date=date, **wue_options
                 )
         except WUEError as e:
             results.append(
-                FluxpartResult(
+                FVSResult(
                     label=datetime,
                     mssg=e.args[0],
                     dataread=True,
                     hfsummary=hfsum,
-                    fluxes=AllFluxes(
-                        **_set_only_total_fluxes(hfsum), temper_kelvin=hfsum.T
-                    ),
+                    sunrise=sunrise,
+                    sunset=sunset,
                 )
             )
+            if stdout and verbose:
+                print(e.args[0])
+            continue
 
         fluxes, fvsp = fvspart_progressive(
             hfdat["w"].values,
@@ -245,13 +306,13 @@ def fvspart(
         if fvsp.valid_partition:
             fluxes = AllFluxes(**attr.asdict(fluxes), temper_kelvin=hfsum.T)
         else:
-            fluxes = AllFluxes(
-                **_set_only_total_fluxes(hfsum), temper_kelvin=hfsum.T
-            )
+            fluxes = AllFluxes()
 
         results.append(
-            FluxpartResult(
+            FVSResult(
                 label=datetime,
+                sunrise=sunrise,
+                sunset=sunset,
                 dataread=True,
                 attempt_partition=True,
                 fluxes=fluxes,
@@ -262,8 +323,11 @@ def fvspart(
                 wue=leaf_wue,
             )
         )
+        if stdout and verbose:
+            if fvsp.mssg:
+                print(fvsp.mssg)
 
-    return FluxpartResultSeries(results)
+    return FluxpartResult(results)
 
 
 def _set_all_fluxes_nonstomatal(hfsum):
@@ -308,8 +372,8 @@ def flux_partition(*args, **kws):
     return fvspart(*args, **kws)
 
 
-class FluxpartResult(object):
-    """Fluxpart result."""
+class FVSResult(object):
+    """FVS partitioning result."""
 
     def __init__(
         self,
@@ -318,6 +382,8 @@ class FluxpartResult(object):
         partition_success=False,
         mssg=None,
         label=None,
+        sunrise=None,
+        sunset=None,
         fluxes=AllFluxes(),
         hfsummary=HFSummary(),
         wue=WUE(),
@@ -348,6 +414,8 @@ class FluxpartResult(object):
         self.mssg = mssg
         self.fluxes = fluxes
         self.label = label
+        self.sunrise=sunrise
+        self.sunset=sunset
         self.fvsp_solution = fvsp_solution
         self.wue = wue
         self.hfsummary = hfsummary
@@ -364,6 +432,8 @@ class FluxpartResult(object):
             partition_success=self.partition_success,
             mssg=self.mssg,
             label=self.label,
+            sunrise=self.sunrise,
+            sunset=self.sunset,
             **attr.asdict(self.fluxes),
             **attr.asdict(self.hfsummary),
             **attr.asdict(self.wue),
@@ -373,70 +443,135 @@ class FluxpartResult(object):
         )
 
 
-class FluxpartResultSeries(object):
-    def __init__(self, results):
-        index = pd.DatetimeIndex(r.label for r in results)
+class FluxpartResult(object):
+    def __init__(self, fp_results):
+        if isinstance(fp_results, str):
+            with open(fp_results, 'rb') as f:
+                self.df = pd.read_pickle(f)
+                self.meta = pickle.load(f)
+            return
+        index = pd.DatetimeIndex(r.label for r in fp_results)
         df0 = pd.DataFrame(
-            (r.fluxes.common_units() for r in results), index=index
+            (r.fluxes.common_units() for r in fp_results),
+            index=index,
+            columns=fp_results[0].fluxes.common_units().keys(),
         )
         df1 = pd.DataFrame(
-            (r.hfsummary.common_units() for r in results), index=index
+            (r.hfsummary.common_units() for r in fp_results),
+            index=index,
+            columns=fp_results[0].hfsummary.common_units().keys(),
         )
         df2 = pd.DataFrame(
-            (r.wue.common_units() for r in results), index=index
+            (r.wue.common_units() for r in fp_results),
+            index=index,
+            columns=fp_results[0].wue.common_units().keys(),
         )
         df3 = pd.DataFrame(
-            (r.fvsp_solution.common_units() for r in results), index=index
+            (r.fvsp_solution.common_units() for r in fp_results),
+            index=index,
+            columns=fp_results[0].fvsp_solution.common_units().keys(),
         )
         df4 = pd.DataFrame(
             {
-                "version": [r.version for r in results],
-                "dataread": [r.dataread for r in results],
-                "attempt_partition": [r.attempt_partition for r in results],
-                "partition_success": [r.partition_success for r in results],
-                "mssg": [r.mssg for r in results],
+                "dataread": [r.dataread for r in fp_results],
+                "attempt_partition": [r.attempt_partition for r in fp_results],
+                "partition_success": [r.partition_success for r in fp_results],
+                "mssg": [r.mssg for r in fp_results],
+                "sunrise": [r.sunrise for r in fp_results],
+                "sunset": [r.sunset for r in fp_results],
             },
             index=index,
         )
         self.df = pd.concat(
             [df0, df1, df2, df3, df4],
             axis=1,
-            keys=["fluxes", "hfsummary", "wue", "fvsp_solution", "fluxpart"],
+            sort=False,
+            keys=[
+                "fluxes", "hfsummary", "wue", "fvsp_solution", "fluxpart"],
         )
 
-    def plot_Fc(self, **kws):
-        ax = self.df["fluxes"][["Fc", "Fcp", "Fcr"]].plot(**kws)
-        ax.set_ylabel(r"CO2 $[\mathrm{mg/m^2/s}]$")
+        self.meta = {
+            "version": fp_results[0].version,
+            "date": str(pydatetime.datetime.now())
+        }
+
+    def __str__(self):
+        if len(self.df) == 1:
+            return self.istr(0)
+        else:
+            return self.df.__str__()
+
+    def __getitem__(self, item):
+        return self.df[item]
+
+    def __getattr__(self, x):
+        return getattr(self.df, x)
+
+    def plot_co2(
+            self,
+            start=None,
+            end=None,
+            units='mass',
+            components=(0, 1, 2),
+            ax=None,
+            **kws
+    ):
+        if ax is None:
+            ax = plt.gca()
+        if units == "mass":
+            cols = ["Fc", "Fcp", "Fcr"]
+            ylab = r"$\mathrm{CO_2\ Flux\ (mg\ m^{-2}\ s^{-1})}$"
+        else:
+            cols = ["Fc_mol", "Fcp_mol", "Fcr_mol"]
+            ylab = r"$\mathrm{CO_2\ Flux\ (umol\ m^{-2}\ s^{-1})}$"
+        labels = [
+            r"$\mathrm{F_c}$", r"$\mathrm{F_{c_p}}$", r"$\mathrm{F_{c_r}}$"]
+        cols = [cols[j] for j in components]
+        labels = [labels[j] for j in components]
+        self.df.loc[start:end, ("fluxes", cols)].plot(ax=ax)
+        ax.legend(labels)
+        ax.set_ylabel(ylab)
         return ax
 
-    def plot_Fc_mol(self, **kws):
-        ax = self.df["fluxes"][["Fc_mol", "Fcp_mol", "Fcr_mol"]].plot(**kws)
-        ax.set_ylabel(r"CO2 $[\mathrm{umol/m^2/s}]$")
-        ax.legend(["Fc", "Fcp", "Fcr"])
+    def plot_h2o(
+            self,
+            start=None,
+            end=None,
+            units='mass',
+            components=(0, 1, 2),
+            ax=None,
+            **kws
+    ):
+        if ax is None:
+            ax = plt.gca()
+        if units == "mass":
+            cols = ["Fq", "Fqt", "Fqe"]
+            ylab = r"$\mathrm{H_20\ Flux\ (g\ m^{-2}\ s^{-1})}$"
+        elif units == "mol":
+            cols = ["Fq_mol", "Fqt_mol", "Fqe_mol"]
+            ylab = r"$\mathrm{H_20\ Flux\ (mmol\ m^{-2}\ s^{-1})}$"
+        else:
+            cols = ["LE", "LEt", "LEe"]
+            ylab = r"$\mathrm{LE\ (W\ m^{-2})}$"
+        labels = [
+            r"$\mathrm{F_q}$",
+            r"$\mathrm{F_{q_t}}$",
+            r"$\mathrm{F_{q_e}}$",
+        ]
+
+        cols = [cols[j] for j in components]
+        labels = [labels[j] for j in components]
+
+        self.df.loc[start:end, ("fluxes", cols)].plot(ax=ax)
+        ax.legend(labels)
+        ax.set_ylabel(ylab)
         return ax
 
-    def plot_Fq(self, **kws):
-        ax = self.df["fluxes"][["Fq", "Fqe"]].plot(**kws)
-        ax.set_ylabel(r"H2O $[\mathrm{g/m^2/s}]$")
-        ax.legend(["Evapotranspiration", "Evaporation"])
-        return ax
-
-    def plot_Fq_mol(self, **kws):
-        ax = self.df["fluxes"][["Fq_mol", "Fqe_mol"]].plot(**kws)
-        ax.set_ylabel(r"H2O $[\mathrm{mmol/m^2/s}]$")
-        ax.legend(["Evapotranspiration", "Evaporation"])
-        return ax
-
-    def plot_LE(self, **kws):
-        ax = self.df["fluxes"][["LE", "LEe"]].plot(**kws)
-        ax.set_ylabel(r"LE $[\mathrm{W/m^2}]$")
-        ax.legend(["LE", "LE-evap"])
-        return ax
-
-    def iresult(self, i):
-        """Return a str represenation of the ith result"""
+    def istr(self, i):
+        """Return a string representation of the ith result"""
         return _fp_result_str.format(
-            timenow=pydatetime.datetime.now(),
+            version=self.meta['version'],
+            date=self.meta['date'],
             label=self.df.index[i],
             **self.df.iloc[i]["fluxpart"].to_dict(),
             **self.df.iloc[i]["fluxes"].to_dict(),
@@ -445,9 +580,10 @@ class FluxpartResultSeries(object):
             **self.df.iloc[i]["wue"].to_dict(),
         )
 
-    def tsplot(self, indx, **kws):
-        ax = self.df.loc[:, indx].plot(**kws)
-        return ax
+    def save(self, filename):
+        with open(filename, 'wb') as f:
+            self.df.to_pickle(f)
+            pickle.dump(self.meta, f)
 
 
 def _converter_func(slope, intercept):
@@ -459,28 +595,39 @@ def _converter_func(slope, intercept):
     return func
 
 
-def _files(file_or_dir, ext=""):
+def _files(file_or_dir):
     if isinstance(file_or_dir, str):
         file_or_dir = [file_or_dir]
-    if os.path.isfile(file_or_dir[0]):
-        unsorted_files = file_or_dir
-    elif os.path.isdir(file_or_dir[0]):
-        unsorted_files = []
-        for p in file_or_dir:
-            unsorted_files += glob(os.path.join(p, "*" + ext))
-    else:
-        raise FluxpartError("Unable to infer data type")
+    unsorted_files = []
+    for path in file_or_dir:
+        if os.path.isfile(path):
+            unsorted_files.append(path)
+            continue
+        if os.path.isdir(path):
+            path = os.path.join(path, "*")
+        unsorted_files += iglob(path)
     return unsorted_files
 
 
 def _peektime(files, **kwargs):
-    kws = deepcopy(kwargs)
-    if kws["filetype"] == "csv":
-        kws["nrows"] = 1
+    if kwargs["filetype"] == "csv":
+        tcol = kwargs["time_col"]
+        sep = ","
+        if "delimiter" in kwargs:
+            sep = kwargs["delimiter"]
+        if "sep" in kwargs:
+            sep = kwargs["sep"]
+        datetimes = []
+        for file_ in files:
+            with open(file_, 'rt') as f:
+                for _ in range(kwargs["skiprows"]):
+                    f.readline()
+                tstamp = f.readline().split(sep)[tcol].strip("'\"")
+                datetimes.append(pd.to_datetime(tstamp))
     else:  # "tob1"
-        kws = {"count": 5}
-    source = HFDataSource(files, **kws)
-    return [df.index[0] for df in source.reader(interval=None)]
+        source = HFDataSource(files, count=5, **kwargs)
+        datetimes = [df.index[0] for df in source.reader(interval=None)]
+    return datetimes
 
 
 def _validate_hfd_format(hfd_format):
@@ -490,3 +637,25 @@ def _validate_hfd_format(hfd_format):
         raise Error("No value for hfd_format['filetype'] given.")
     if hfd_format["filetype"] not in ("csv", "tob1"):
         raise Error(f"Unrecognized filetype: {hfd_format['filetype']}")
+
+
+def _lookup(csv_file, date_icol, icol1, icol2=None, method='ffill'):
+    """Create a function for looking up data in csv file.
+    date_icol, icol1, icol2 : int
+        column index for the respective data
+    method : str
+        Interpolation method used with pandas df.index.get_loc. The
+        default 'ffill' returns the PREVIOUS values if no exact date
+        match is found in the lookup.
+
+    """
+    df = pd.read_csv(csv_file, index_col=date_icol, parse_dates=True)
+
+    @lru_cache()
+    def func(date):
+        ix = df.index.get_loc(pd.to_datetime(date), method=method)
+        if icol2 is None:
+            return df.iloc[ix, icol1 - 1]
+        else:
+            return df.iloc[ix, icol1 - 1], df.iloc[ix, icol2 - 1]
+    return func

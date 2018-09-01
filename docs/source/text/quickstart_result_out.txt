@@ -1,7 +1,0 @@
->>> print(out['result'])
-Result(
-    version = 0.1.0b1,
-    dataread = True,
-    attempt_partition = True,
-    valid_partition = True,
-    mssg = )

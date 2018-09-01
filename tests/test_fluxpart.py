@@ -41,14 +41,6 @@ def test_flux_partition():
         LEt=354.310004313924,
     )
 
-    # hfd = {
-    #     "cols": (2, 3, 4, 5, 6, 7, 8),
-    #     "delimiter": ",",
-    #     "skiprows": 4,
-    #     "unit_convert": {"q": 1e-3, "c": 1e-6, "P": 1e3},
-    #     "temper_unit": "C",
-    # }
-
     fvsp = fvs_partition(fname, wue_options=wue_data, hfd_format="ec-TOA5")
 
     npt.assert_allclose(fvsp.df["fvsp_solution"]["var_cp"], 18.9272, atol=1)

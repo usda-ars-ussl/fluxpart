@@ -6,7 +6,7 @@ import numpy.testing as npt
 import pandas as pd
 
 from fluxpart.hfdata import HFData, HFDataSource
-from fluxpart.fluxpart import _converter_func
+from fluxpart.fluxpart import _converter_func, _peektime
 
 TESTDIR = os.path.dirname(os.path.realpath(__file__))
 DATADIR = os.path.join(TESTDIR, "data")
@@ -124,8 +124,11 @@ def test_hfdata_reader():
     source = HFDataSource(files=[fname], **kws)
     data = HFData(next(source.reader(interval="30min")))
     assert_tob_read(data)
-    assert data.dataframe.index[0] == pd.to_datetime("2017-08-03 00:00:00.1")
-    assert data.dataframe.index[-1] == pd.to_datetime("2017-08-03 00:00:14.4")
+
+    datetime = _peektime([fname], **kws)[0]
+    assert (
+        datetime.round(freq="100ms") == pd.to_datetime("2017-08-03 00:00:00.1")
+    )
 
     reader = source.reader(interval="5s")
     for cnt, df in enumerate(reader):
@@ -201,8 +204,14 @@ def assert_tob_read(data):
     npt.assert_allclose(data["q"].iloc[-1], 13.200139e-3)
     npt.assert_allclose(data["T"].iloc[-1], 23.015879 + 273.15)
     npt.assert_allclose(data["P"].iloc[-1], 85.0407e3)
-    assert data.dataframe.index[0] == pd.to_datetime("2017-08-03 00:00:00.1")
-    assert data.dataframe.index[-1] == pd.to_datetime("2017-08-03 00:00:14.4")
+    assert (
+        data.dataframe.index[0].round(freq="100ms")
+        == pd.to_datetime("2017-08-03 00:00:00.1")
+    )
+    assert (
+        data.dataframe.index[-1].round(freq="100ms")
+        == pd.to_datetime("2017-08-03 00:00:14.4")
+    )
 
 
 def assert_10min_chunk_read(ichunk, df):
@@ -255,15 +264,15 @@ def assert_5S_tobchunk_read(cnt, df):
         "2017-08-03 00:00:09.9",
         "2017-08-03 00:00:14.4",
     ]
-    assert df.index[0] == pd.to_datetime(starts[cnt])
-    assert df.index[-1] == pd.to_datetime(stops[cnt])
+    assert df.index[0].round(freq="100ms") == pd.to_datetime(starts[cnt])
+    assert df.index[-1].round(freq="100ms") == pd.to_datetime(stops[cnt])
 
 
 def assert_1min_tobchunk_read(cnt, df):
     starts = ["2017-08-03 00:00:00.1"]
     stops = ["2017-08-03 00:00:14.4"]
-    assert df.index[0] == pd.to_datetime(starts[cnt])
-    assert df.index[-1] == pd.to_datetime(stops[cnt])
+    assert df.index[0].round(freq="100ms") == pd.to_datetime(starts[cnt])
+    assert df.index[-1].round(freq="100ms") == pd.to_datetime(stops[cnt])
 
 
 if __name__ == "__main__":

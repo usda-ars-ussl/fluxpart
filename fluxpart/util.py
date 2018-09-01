@@ -53,6 +53,9 @@ def chunked_df(dataframes, time_interval):
         group = iter(gdf)
         for _ in range(len(gdf) - 1):
             interval, chunk = next(group)
+            # len=0 can happen if a time gap > interval exists in data
+            if len(chunk) == 0:
+                continue
             yield chunk
         current_interval, next_df = next(group)
         consumed_dfs = [next_df]
@@ -64,6 +67,8 @@ def chunked_df(dataframes, time_interval):
     df = pd.concat(consumed_dfs)
     gdf = df.groupby(df.index.floor(time_interval))
     for interval, chunk in gdf:
+        if len(chunk) <= 1:
+            continue
         yield chunk
 
 
@@ -145,6 +150,10 @@ def vapor_press_deficit(rho_vapor, t_kelvin):
     return sat_vapor_press(t_kelvin) - rho_vapor * Rgas.vapor * t_kelvin
 
 
+def vapor_press_deficit_mass(rho_vapor, t_kelvin):
+    return vapor_press_deficit(rho_vapor, t_kelvin) / Rgas.vapor / t_kelvin
+
+
 def qflux_mass_to_heat(massflux, Tk):  # kg/m^2/s, K
     Lv = 2.5008e6 - 2366.8 * (Tk - 273.15)  # J/kg
     return massflux * Lv  # W/m^2
@@ -163,8 +172,8 @@ def progressive_lowcut_series(series):
 
     Yields sequence in which the low-frequency (large-scale) components
     of `series` are progressively removed.  The sequence is obtained
-    from reconstrution of a multilevel discrete haar wavelet
-    decompositon of `series`.
+    from reconstruction of a multilevel discrete haar wavelet
+    decomposition of `series`.
 
     N.B.: The length of `series` is assumed to be a power of 2
     (does not check!)
@@ -215,7 +224,7 @@ def progressive_lowcut_series(series):
 
         lowcut = S - A(N)
         for j = N to 2
-            lowcut = lowcut - D(j)
+            lowcut -= D(j)
 
     """
 

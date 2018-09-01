@@ -53,7 +53,10 @@ def test_fvspart_interval():
         Fcr=-0.088690e-6,
     )
     mass_fluxes, fvsp = fvspart_interval(qcdata, wue)
-    assert_partition(mass_fluxes, fvsp, desired)
+    # ver. 0.2.0 no longer returns nonphysical soln
+    if 0:
+        assert_partition(mass_fluxes, fvsp, desired)
+    assert not fvsp.rootsoln.valid_root
 
     # comparable to Ray Anderson peach data, 2012-06-07 1300
     # The valid solution in this case uses the '+' CO2 root
@@ -68,18 +71,8 @@ def test_fvspart_interval():
     massfluxes, fvsp = fvspart_interval(qcdata, wue)
     assert fvsp.rootsoln.valid_root
 
-    # comparable to Ray Anderson peach data, 2012-06-07 0230
-    # The valid solution in this case uses the '-' CO2 root
-    wue = -68.77103e-3
-    qcdata = SimpleNamespace(
-        var_q=0.001326586e-6,
-        var_c=9.948297e-12,
-        wq=0.00088955655e-3,
-        wc=0.07513186e-6,
-        corr_qc=0.8886955,
-    )
-    massfluxes, fvsp = fvspart_interval(qcdata, wue)
-    assert fvsp.rootsoln.valid_root
+    # TODO: Add a test using the '-' root.
+    # Previous test used here was wrong
 
 
 def assert_partition(fluxes, fvsp, desired):

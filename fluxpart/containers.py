@@ -135,16 +135,16 @@ class AllFluxes(object):
     def common_units(self):
         return dict(
             Fq=1e3 * self.Fq,
-            Fc=1e6 * self.Fc,
             Fqt=1e3 * self.Fqt,
-            Fcp=1e6 * self.Fcp,
             Fqe=1e3 * self.Fqe,
+            Fc=1e6 * self.Fc,
+            Fcp=1e6 * self.Fcp,
             Fcr=1e6 * self.Fcr,
             Fq_mol=1e3 * self.Fq_mol,
-            Fc_mol=1e6 * self.Fc_mol,
             Fqt_mol=1e3 * self.Fqt_mol,
-            Fcp_mol=1e6 * self.Fcp_mol,
             Fqe_mol=1e3 * self.Fqe_mol,
+            Fc_mol=1e6 * self.Fc_mol,
+            Fcp_mol=1e6 * self.Fcp_mol,
             Fcr_mol=1e6 * self.Fcr_mol,
             LE=self.LE,
             LEt=self.LEt,
@@ -331,8 +331,8 @@ class FVSPSolution(object):
             fvsp_mssg=self.fvsp_mssg,
             valid_partition=self.valid_partition,
             wave_lvl=self.wave_lvl,
-            **self.wqc_data,
-            **self.rootsoln,
+            **self.wqc_data.common_units(),
+            **self.rootsoln.common_units(),
         )
 
     def results_str(self):

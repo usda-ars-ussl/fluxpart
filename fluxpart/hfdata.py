@@ -295,7 +295,7 @@ class HFDataSource(object):
             read.
 
 
-        .. _numpy.fromfile
+        .. _numpy.fromfile:
             https://docs.scipy.org/doc/numpy/reference/generated/numpy.fromfile.html
 
         .. _pandas.read_csv:

@@ -4,6 +4,13 @@
 Reference
 =========
 
+fluxpart.api
+------------
+
+.. automodule:: fluxpart.api
+    :members:
+    :undoc-members:
+
 fluxpart.constants
 ------------------
 
@@ -36,13 +43,6 @@ fluxpart.partition
 ------------------
 
 .. automodule:: fluxpart.partition
-    :members:
-    :undoc-members:
-
-fluxpart.plots
---------------
-
-.. automodule:: fluxpart.plots
     :members:
     :undoc-members:
 

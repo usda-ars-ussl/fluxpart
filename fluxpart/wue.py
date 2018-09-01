@@ -4,7 +4,8 @@ from .constants import GRAVITY, VON_KARMAN
 from .constants import MOLECULAR_WEIGHT as MW
 from .constants import SPECIFIC_GAS_CONSTANT as Rgas
 from .containers import WUE
-from .util import sat_vapor_press, vapor_press_deficit
+from .util import (
+    sat_vapor_press, vapor_press_deficit, vapor_press_deficit_mass)
 
 
 _C3_DEFAULTS = dict(
@@ -30,13 +31,14 @@ class WUEError(Error):
 
 def water_use_efficiency(
     hfs,
-    meas_ht,
-    canopy_ht,
-    ppath,
     ci_mod,
     ci_mod_param=None,
     leaf_temper=None,
     leaf_temper_corr=0,
+    meas_ht=None,
+    canopy_ht=None,
+    heights=None,
+    ppath=None,
     diff_ratio=1.6,
     date=None,
 ):
@@ -57,12 +59,19 @@ def water_use_efficiency(
         `cov_w_T`, covariance of wind and temperature (K m/s);
         `ustar`, friction velocity (m/s);
         `rho_totair`, moist air density (kg/m^3).
-    meas_ht : float
-        Eddy covariance measurement height (m).
-    canopy_ht : float
-        Vegetation canopy height (m).
+    meas_ht : float or callable, optional
+        Eddy covariance measurement height (m). If callable, accepts
+        date as its sole argument and returns the height.
+    canopy_ht : float or callable, optional
+        Vegetation canopy height (m). If callable, accepts date as its
+        sole argument and returns the height.
+    heights : callable, optional
+        Alternative way to specify the canopy and measurement heights.
+        Accepts a date as its sole argument and returns the tuple
+        (canopy_ht, meas_ht). Overrides values passed as `meas_ht` or
+        `canopy_ht`.
     ppath : {'C3', 'C4'}
-         photosynthetic pathway
+        photosynthetic pathway
     ci_mod : {'const_ratio', 'const_ppm', 'linear', 'sqrt'}
         Specifies the model to be used to determine the leaf
         intercellular CO2 concentration. See Notes below for model
@@ -85,6 +94,8 @@ def water_use_efficiency(
     diff_ratio: float, optional
         Ratio of molecular diffusivities for water vapor and CO2.
         Default is `diff_ratio` = 1.6.
+    date: date object or string
+        Date to be used if canopy_ht, meas_ht, or heights is callable.
 
     Returns
     -------
@@ -152,6 +163,8 @@ def water_use_efficiency(
         canopy_ht = canopy_ht(date)
     if callable(meas_ht):
         meas_ht = meas_ht(date)
+    if heights is not None:
+        canopy_ht, meas_ht = heights(date)
     if canopy_ht > meas_ht:
         raise WUEError("canopy_ht is less than meas_ht")
 
@@ -183,11 +196,6 @@ def water_use_efficiency(
     ambient_h2o = hfs.rho_vapor + hfs.cov_w_q * arg
     ambient_co2 = hfs.rho_co2 + hfs.cov_w_c * arg
 
-    # Ambient vapor pressure deficit
-    vpd = vapor_press_deficit(hfs.rho_vapor, hfs.T)
-    if vpd < 0:
-        raise WUEError("Negative vapor pressure deficit {}".format(vpd))
-
     # Intercellular saturation vapor pressure `esat`
     leaf_T = (leaf_temper or hfs.T) + leaf_temper_corr
     esat = sat_vapor_press(leaf_T)
@@ -196,9 +204,52 @@ def water_use_efficiency(
     eps = MW.vapor / MW.dryair
     inter_h2o = hfs.rho_totair * eps * esat / (hfs.P - (1 - eps) * esat)
 
+    if ci_mod == 'opt':
+        varq = hfs.var_vapor
+        varc = hfs.var_co2
+        wq = hfs.cov_w_q
+        wc = hfs.cov_w_c
+        pqc = hfs.corr_q_c
+        dr = diff_ratio
+        vpdm = vapor_press_deficit_mass(ambient_h2o, leaf_T)
+        vpd = vapor_press_deficit(ambient_h2o, leaf_T)
+        if vpdm < 0:
+            _bad_vpdm = "Negative vapor pressure deficit, {:.4} kg/m^3"
+            raise WUEError(_bad_vpdm.format(vpdm))
+        m = - (varc * wq - pqc * sqrt(varq * varc) * wc)
+        m /= varq * wc - pqc * sqrt(varq * varc) * wq
+        if m < 0:
+            raise WUEError("opt wue m arg = {:.4} < 0".format(m))
+        arg = dr * vpdm * m
+        rootarg = arg * (ambient_co2 + arg)
+        if rootarg < 0:
+            raise WUEError("opt wue root arg = {:.4} < 0".format(rootarg))
+        wue = (arg - sqrt(rootarg)) / (dr * vpdm)
+        return WUE(
+            wue=wue,
+            inter_h2o=inter_h2o,
+            ambient_h2o=ambient_h2o,
+            ambient_co2=ambient_co2,
+            vpd=vpd,
+            meas_ht=meas_ht,
+            leaf_temper=leaf_T,
+            ci_mod=ci_mod,
+            diff_ratio=diff_ratio,
+        )
+
+    if meas_ht is None or canopy_ht is None or ppath is None:
+        mssg = "meas_ht, canopy_ht, and ppath are required args for ci_mod= {}"
+        raise WUEError(mssg.format(ci_mod))
+
     # Intercellular CO2 concentration, aka ci (kg/m^3)
     if isinstance(ci_mod, str):
         ci_mod = (ci_mod, None)
+
+    # Ambient vapor pressure deficit
+    # TODO should this use the extrapolated ambient h2o?
+    vpd = vapor_press_deficit(ambient_h2o, leaf_T)
+    if vpd < 0:
+        raise WUEError("Negative vapor pressure deficit {:.4} Pa".format(vpd))
 
     ci_mod_name = ci_mod[0]
     if ci_mod_name == "sqrt" and ppath == "C4":

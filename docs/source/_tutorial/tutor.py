@@ -1,197 +1,58 @@
-import glob
+"""
+/media/tower is link to Beltsville tower data
+/media/data is link to Beltsville processed data
+/media/results is link to Beltsville processed/fluxpart/version
+BEGIN/END tags are for sphinx literalinclude directive
+"""
 import os
-import pickle
-import textwrap
-import zipfile
 
-import fluxpart as fp
-from fluxpart.plots import plot_fluxes
-from fluxpart.plots import plot_hfdata
-from fluxpart.hfdata import HFData
-from fluxpart.fluxpart import _converter_func
+FIGDIR = "../images"
 
 
-DATADIR = './data'
-RESDIR = './results'
-FIGDIR = '../images'
-TXTDIR = '../text'
-ZIPFILE = '05-08June2012.zip'
-TUTORPKL = 'tutor_fpout.pkl'
-ZIPPKL = 'zip_fpout.pkl'
+def tutor_fvsp():
 
-QUICKFILE = 'TOA5_6843.ts_Above_2012_06_07_1245.dat'
+    # BEGIN tutorfvsp
+    from fluxpart import fvs_partition
 
-# BEGIN/END tags and redundant imports are for sphinx literalinclude directive
+    data_files = "/media/tower/*_2014_0[4-9]_*"
+    results_file = "/media/results/apr-sept_2014.pkl"
+    heights_file = "/media/data/meta_heights.csv"
+    daylight_file = "/media/data/daylight2014.csv"
 
+    fvsp = fvs_partition(
+        file_or_dir=data_files,
+        hfd_format="EC-TOA5",
+        interval="30min",
+        wue_options={"heights": heights_file, "ppath": "C3"},
+        part_options={"daytime": daylight_file},
+    )
 
-def make_quickdata():
-    fname = QUICKFILE
-    if not os.path.exists(os.path.join(DATADIR, fname)):
-        with zipfile.ZipFile(os.path.join(DATADIR, ZIPFILE), 'r') as zarch:
-            zarch.extract(fname, DATADIR)
+    fvsp.save(results_file)
+    # END tutorfvsp
 
-
-def quickstart():
-    make_quickdata()
-    # BEGIN quickstart
-    import fluxpart as fp
-    out = fp.flux_partition(
-        fname='data/TOA5_6843.ts_Above_2012_06_07_1245.dat',
-        hfd_options={
-            'cols': (2, 3, 4, 6, 5, 7, 8),
-            'unit_convert': {'q': 1e-3, 'c': 1e-6, 'P': 1e3},
-            'temper_unit': 'C',
-            'delimiter': ",",
-            'skip_header': 4},
-        wue_options={
-            'meas_ht': 7.11,
-            'canopy_ht': 4.42,
-            'ppath': 'C3'})
-    # END quickstart
-    return out
+    return fvsp
 
 
-def known_wue():
-    make_quickdata()
-    # BEGIN known_wue
-    import fluxpart as fp
-    out = fp.flux_partition(
-        fname='data/TOA5_6843.ts_Above_2012_06_07_1245.dat',
-        hfd_options={
-            'cols': (2, 3, 4, 6, 5, 7, 8),
-            'unit_convert': {'q': 1e-3, 'c': 1e-6, 'P': 1e3},
-            'temper_unit': 'C',
-            'delimiter': ",",
-            'skip_header': 4},
-        meas_wue=-6.5e-3)  # kg CO2 / kg H2O
-    # END known_wue
-    return out
+def tutor_plot():
+    # need to sync this pathname def with the one used in tutorfvsp
+    results_file = "/media/results/apr-sept_2014.pkl"
+    from fluxpart import fpread
+    fvsp = fpread(results_file)
 
-
-# BEGIN my_fpart
-import fluxpart as fp
-def my_fpart(datafile, timestamp):
-    return fp.flux_partition(
-        fname=datafile,
-        label=timestamp,
-        hfd_options={
-            'cols': (2, 3, 4, 6, 5, 7, 8),
-            'unit_convert': {'q': 1e-3, 'c': 1e-6, 'P': 1e3},
-            'temper_unit': 'C',
-            'delimiter': ",",
-            'skip_header': 4,
-            'flags': (9, 0)},
-        wue_options={
-            'meas_ht': 7.11,
-            'canopy_ht': 4.42,
-            'ppath': 'C3'})
-# END my_fpart
-
-
-def tutor_example():
-    # BEGIN tutor_example
-    import datetime
-    from itertools import product
-    import os
-    DATADIR = "./data"
-    fpout = []
-    for day, hour, minu in product(range(5, 9), range(0, 24), range(0, 60, 15)):
-        timestamp = datetime.datetime(2012, 6, day, hour, minu)
-        filename = (
-            "TOA5_6843.ts_Above_2012_06_{:02}_{:02}{:02}.dat".format(day, hour, minu))
-        datafile = os.path.join(DATADIR, filename)
-        fpout.append(my_fpart(datafile, timestamp))
-    # END tutor_example
-    return fpout
-
-
-def tutor_fpout():
-    pklout = os.path.join(RESDIR, TUTORPKL)
-    if os.path.exists(pklout):
-        with open(pklout, 'rb') as f:
-            fpout = pickle.load(f)
-    else:
-        print('re-creating fp results ... this could take a few minutes')
-        zip_archive = os.path.join(DATADIR, ZIPFILE)
-        with zipfile.ZipFile(zip_archive, 'r') as zfile:
-            zfile.extractall(DATADIR)
-        fpout = tutor_example()
-        make_clean_dat()
-        os.makedirs(RESDIR, exist_ok=True)
-        with open(pklout, 'wb') as f:
-            pickle.dump(fpout, f)
-    return fpout
-
-
-def cat_quickstart_data():
-    with zipfile.ZipFile(os.path.join(DATADIR, ZIPFILE), 'r') as zarch:
-        with zarch.open(QUICKFILE, 'r') as datafile:
-            with open(os.path.join(TXTDIR, 'cat_quickstart.txt'), 'w') as f:
-                f.write('$ cat ' + QUICKFILE + '\n')
-                for _ in range(0, 7):
-                    f.write(next(datafile).decode('utf-8').strip('\r\n') + '\n')
-                for line in datafile:
-                    pass
-                f.write('...\n')
-                f.write(line.decode('utf-8').strip('\r\n'))
-
-
-def quickstart_out(field):
-    fname = 'quickstart_' + field + '_out.txt'
-    out = quickstart()
-    with open(os.path.join(TXTDIR, fname), 'w') as f:
-        f.write(">>> print(out['{}'])\n".format(field) + out[field].__str__())
-
-
-def quickstart_rawout(field):
-    fname = 'quickstart_' + field + '_rawout.txt'
-    out = quickstart()
-    with open(os.path.join(TXTDIR, fname), 'w') as f:
-        f.write(">>> out['{}']\n".format(field))
-        for line in textwrap.wrap(out[field].__repr__()):
-            f.write(line + '\n')
-
-
-def hfdata_plot():
-    make_quickdata()
-    unit_convert = {'q': 1e-3, 'c': 1e-6, 'P': 1e3}
-    converters = {
-        k: _converter_func(float(v), 0.) for k, v in unit_convert.items()}
-    converters['T'] = _converter_func(1., 273.15)
-    with zipfile.ZipFile(os.path.join(DATADIR, ZIPFILE), 'r') as zarch:
-        with zarch.open(QUICKFILE, 'r') as datafile:
-            data = HFData(
-                fname=datafile,
-                cols=(2, 3, 4, 6, 5, 7, 8),
-                converters=converters,
-                delimiter=",",
-                skip_header=4)
-    fig = plot_hfdata(data)
-    return fig
-
-
-def make_clean_dat():
-    for fname in glob.glob(os.path.join(DATADIR, '*.dat')):
-        os.remove(fname)
+    # BEGIN tutorplot
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots()
+    fvsp.plot_h2o(start="2014-09-01", end="2014-09-04", ax=ax)
+    fig.autofmt_xdate()
+    fig.savefig("/media/results/example_h2o.png")
+    # END tutorplot
+    fig.savefig(os.path.join(FIGDIR, "example_h2o.png"))
 
 
 def main():
-    fpout = tutor_fpout()
-    fig = plot_fluxes(fpout[0:96], '05 June 2012')
-    fig.savefig(os.path.join(FIGDIR, 'tutor_05June2012_fluxes.png'))
-    fig = plot_fluxes(fpout, '05-08 June 2012')
-    fig.savefig(os.path.join(FIGDIR, 'tutor_05-08June2012_fluxes.png'))
-    fig = hfdata_plot()
-    fig.savefig(os.path.join(FIGDIR, 'tutor_quickstart_hfdata.png'))
-    cat_quickstart_data()
-    quickstart_out('fluxes')
-    quickstart_rawout('fluxes')
-    quickstart_out('result')
-    quickstart_out('hfsummary')
-    quickstart_out('wue')
-    quickstart_out('rootsoln')
-    quickstart_out('qcdata')
+    fvsp = tutor_fvsp()
+    tutor_plot()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

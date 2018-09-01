@@ -8,6 +8,15 @@ import fluxpart.util as util
 from .containers import FVSPSolution, MassFluxes, RootSoln, WQCData
 
 
+class Error(Exception):
+    pass
+
+
+class FVSError(Error):
+    def __init__(self, message):
+        self.message = message
+
+
 def fvspart_progressive(w, q, c, wue, adjust_fluxes=True):
     """FVS flux partitioning using high frequency eddy covariance data.
 
@@ -63,7 +72,7 @@ def fvspart_progressive(w, q, c, wue, adjust_fluxes=True):
     fvsp.wave_lvl = wave_lvl
     if not fvsp.rootsoln.valid_root:
         fvsp.valid_partition = False
-        fvsp.mssg = fvsp.rootsoln.mssg
+        fvsp.mssg = fvsp.rootsoln.root_mssg
     if not fvsp.valid_partition:
         fluxes = MassFluxes()
     return fluxes, fvsp
@@ -118,13 +127,25 @@ def fvspart_interval(wqc_data, wue, wipe_if_invalid=False):
     :class:`~fluxpart.containers.FVSPSolution`
 
     """
+    try:
+        _check_fvs_assumptions(wqc_data)
+    except FVSError as e:
+        mass_fluxes = MassFluxes()
+        fvsps = FVSPSolution(
+            wqc_data=wqc_data,
+            valid_partition=False,
+            fvsp_mssg=e.args[0],
+            rootsoln=RootSoln(valid_root=False),
+        )
+        return mass_fluxes, fvsps
+
     rootsoln = findroot(wqc_data, wue)
     if not rootsoln.valid_root:
         fvsp = FVSPSolution(
             wqc_data=wqc_data,
             rootsoln=rootsoln,
             valid_partition=False,
-            root_mssg=rootsoln.mssg,
+            fvsp_mssg=rootsoln.root_mssg,
         )
         return MassFluxes, fvsp
     mass_fluxes = _mass_fluxes(
@@ -198,7 +219,7 @@ def findroot(wqc_data, wue):
     sig_cr = np.nan
     if valid_root:
         valid_root = False
-        valid_mssg = "Trial root did not satisfy equations"
+        valid_mssg = "Trial root failed"
         scaled_wqc_data = WQCData(
             wq=wq, wc=wc, var_q=var_q, var_c=var_c, corr_qc=corr_qc
         )
@@ -330,8 +351,20 @@ def _isvalid_root(corr_cp_cr, var_cp):
     if not -1 < corr_cp_cr < 0:
         isvalid = False
         mssg += "corr_cp_cr <-1 OR >0; "
-    # TODO: could add other bound checks?
     return isvalid, mssg
+
+
+def _check_fvs_assumptions(qcdat):
+    pqc = qcdat.corr_qc
+    FcFq = qcdat.wc / qcdat.wq
+    lim0 = np.sqrt(qcdat.var_c / qcdat.var_q) / pqc
+    lim1 = np.sqrt(qcdat.var_c / qcdat.var_q) * pqc
+    if pqc < 0 and FcFq <= lim0:
+        mssg = "pqc={:.4}\nFc/Fq={:.4} <= (sigc/sigq)/pqc={:.4}"
+        raise FVSError(mssg.format(pqc, FcFq, lim0))
+    if FcFq >= lim1:
+        mssg = "Fc/Fq={:.4} >= (sigc/sigq)*pqc={:.4}"
+        raise FVSError(mssg.format(FcFq, lim1))
 
 
 def _isvalid_partition(flux_components):

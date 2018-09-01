@@ -1,8 +1,0 @@
->>> print(out['rootsoln'])
-RootSoln(
-    corr_cp_cr = -0.9219,
-    var_cp = 17.23 (mg/m^3)^2,
-    sig_cr = 1.99 mg/m^3,
-    co2soln_id = 1,
-    validroot = True,
-    validmssg = )

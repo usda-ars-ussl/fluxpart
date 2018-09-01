@@ -1,25 +1,31 @@
-from .fluxpart import fvspart
+from .fluxpart import fvspart, FluxpartResult
+
+
+def fpread(saved_results):
+    return FluxpartResult(saved_results)
 
 
 def fvs_partition(
     file_or_dir,
-    ext="",
-    interval="30min",
+    time_sorted=False,
+    interval=None,
     hfd_format=None,
     hfd_options=None,
     meas_wue=None,
     wue_options=None,
     part_options=None,
     label=None,
+    stdout=False,
+    verbose=True,
 ):
     """Partition CO2 & H2O fluxes into stomatal & nonstomatal components.
 
     Provides a full implementation of the flux variance similarity
-    partitioning algorithm [SS08]_[SAAS+18]_: reads high frequency eddy
-    covariance data; performs data transformations and data QA/QC;
-    analyzes water vapor and carbon dioxide fluxes; and partitions the
-    fluxes into stomatal (transpiration, photosynthesis) and nonstomatal
-    (evaporation, respiration) components.
+    partitioning algorithm; reads high frequency eddy covariance data;
+    performs data transformations and data QA/QC; analyzes water vapor
+    and carbon dioxide fluxes; and partitions the fluxes into stomatal
+    (transpiration, photosynthesis) and nonstomatal (evaporation,
+    respiration) components.
 
     The following notation is used in variable naming and documentation
     to represent meteorological quantities::
@@ -33,19 +39,20 @@ def fvs_partition(
     Parameters
     ----------
     file_or_dir : str or list of str
-        High frequency eddy covariance data file, data directory, or
-        list of either. If a directory or list of directories is passed,
-        data files within the directory(s) will be analyzed.
-    ext : str, optional
-        When `file_or_dir` is a directory(s), all files with extension
-        `ext` will be read. Default ("") reads all files regardless of
-        extension. When specifying `ext`, include the "dot" where
-        appropriate (e.g., ext=".dat")
+        Pathname for high frequency eddy covariance data file, data
+        directory, or list of either. Paths can be relative or absolute,
+        and can include unix-style wildcards and brace expansion.  If
+        pathname is a directory without any file pattern, then all files
+        in the directory are read.
+    time_sorted : bool, optional
+        Indicates whether the list of data files given by `file_or_dir`
+        is sorted by time. Default is False.
     interval : str, optional
         Time interval used to aggregate data and partition fluxes.
         Specified using the pandas string alias_ format (e.g.,
-        ``interval="30min"``. Set to None to process whole data files
-        without consideration of time or  date. Default is "30min".
+        ``interval="30min"``). Set to None to treat whole, individual
+        data files as the analysis interval (e.g., if data files each
+        hold 30 min of data). Default is None.
     hfd_format : dict or {"ec-TOB1", "ec-TOA5"}, optional
         Dictionary of parameters specifying the high frequency data file
         format. See ``Other parameters`` below for an explanation of
@@ -71,8 +78,8 @@ def fvs_partition(
         efficiency if `meas_wue` is not provided. See ``Other
         parameters`` section for a description of valid fields.  When
         passing `wue_options`, it is always required to provide entries
-        'canopy_ht', 'meas_ht', and 'ppath'. Other entries are optional.
-        The values for 'canopy_ht' and 'meas_ht' can be either a float
+        "canopy_ht", "meas_ht", and "ppath". Other entries are optional.
+        The values for "canopy_ht" and "meas_ht" can be either a float
         or a callable. A callable must accept a datetime object as its
         sole argument and return a float value.
     part_options : dict, optional
@@ -80,6 +87,11 @@ def fvs_partition(
         ``Other parameters`` section for a listing of valid options.
     label : optional
         Optional identifier to be appended to the results.
+    stdout : bool, optional
+        If True (default), print to stdout information about the
+        progress of the analysis.
+    verbose : bool, optional
+        If True (default), print extra progress information to stdout.
 
 
     Returns
@@ -92,144 +104,155 @@ def fvs_partition(
     hfd_format : dict
         High frequency data file format options. NOTE: When passing
         hfd_format, it is required at a minimum to provide values for
-        'filetype' and 'cols' (detailed below).  'unit_convert' and
-        'temper_unit' are also required if data are not in SI units.
-    hfd_format['filetype'] : {'csv', 'tob1', 'pd.df'}
-        'csv' = delimited text file; 'tob1' = Campbell Scientific binary
-        data table format; 'pd.df' = pandas dataframe.
-    hfd_format['cols'] : 7*(int,)
+        "filetype" "cols", and "time_col" (detailed below).
+        "unit_convert" and "temper_unit" are also required if data are
+        not in SI units.
+    hfd_format["filetype"] : {"csv", "tob1", "pd.df"}
+        "csv" = delimited text file; "tob1" = Campbell Scientific binary
+        data table format; "pd.df" = pandas dataframe.
+    hfd_format["cols"] : 7*(int,)
         7-tuple of integers indicating the data column numbers that
         contain series data for (u, v, w, c, q, T, P), in that order.
         Uses 0-based indexing.
-    hfd_format['unit_convert'] : dict
+    hfd_format["time_col"] : int,
+
+    hfd_format["unit_convert"] : dict
         Dictionary of multiplication factors required to convert any u,
         v, w, c, q, or P data not in SI units to SI units (m/s, kg/m^3,
         Pa). (Note T is not in that list). The dictionary keys are the
         variable names. For example, if all data are in SI units except
         P and c, which are in kPa and mg/m^3, respectively, then set:
-        ``hfd_options['unit_convert'] = {'P': 1e3, 'c': 1e-6}``,
+        ``hfd_options["unit_convert"] = {"P": 1e3, "c": 1e-6}``,
         since it is necessary to multiply the kPa pressure data by 1e3
         to obtain the SI pressure unit (Pa), and the mg/m^3 CO2 data by
         1e-6 to obtain the SI concentration unit (kg/m^3).
-    hfd_format['temper_unit'] : {'K', 'C'}
-        Temperature data units. Default is 'K' (Kelvin).
-    hfd_format['flags'] : 2-tuple or list of 2-tuples
+    hfd_format["temper_unit"] : {"K", "C"}
+        Temperature data units. Default is "K" (Kelvin).
+    hfd_format["flags"] : 2-tuple or list of 2-tuples
         Specifies that one or more data columns are used to flag bad
         data records. Each tuple is of the form (col, goodval), where
         col is an int specifying the column number containing the flag
         (0-based indexing), and goodval is the value of the flag that
         indicates a good data record.
     hfd_format[ other keys ]
-        when `hfd_format['filetype']` is 'csv', all other key:value
+        when `hfd_format["filetype"]` is "csv", all other key:value
         pairs in `hfd_format` are passed as keyword arguments to
         pandas.read_csv_. Those keywords may be required to specify the
         details of the file formatting. Among the most commonly required
-        are: 'sep', the str that is used to separate values or define
-        column widths (default is sep=','); and 'skiprows', which will
+        are: "sep", the str that is used to separate values or define
+        column widths (default is sep=","); and "skiprows", which will
         be needed if the file contains header rows. See pandas.read_csv_
         for a full description of available format options.
 
     hfd_options: dict
         Options for pre-processing high frequency data.
-    hfd_options['correct_external'] : bool, optional
+    hfd_options["correct_external"] : bool, optional
         If True (default), the water vapor and carbon dioxide series
         data are corrected for external fluctuations associated with air
         temperature and vapor density according to [WPL80]_ and [DK07]_.
-    hfd_options['bounds'] : dict, optional
+    hfd_options["bounds"] : dict, optional
         Dictionary indicating any lower and upper bounds for valid data.
         Dictionary entries have the form ``varname: (float, float)``,
-        where varname is one of 'u', 'v', 'w', 'q', 'c', 'T', or 'P',
+        where varname is one of "u", "v", "w", "q", "c", "T", or "P",
         and the 2-tuple holds values for the lower and upper bounds:
         ``(lower, upper)``.  Data records are rejected if a variable in
         the record is outside the prescribed bounds. Default is ``bounds
-        = {'c': (0, np.inf), 'q': (0, np.inf)}`` such that data records
+        = {"c": (0, np.inf), "q": (0, np.inf)}`` such that data records
         are rejected if c or q data are not positive values.
-    hfd_options['rd_tol'] : float, optional
+    hfd_options["rd_tol"] : float, optional
         Relative tolerance for rejecting the datafile. Default is
-        'hfd_options['rd_tol']` = 0.4. See hfd_options['ad_tol'] for
+        `hfd_options["rd_tol"]` = 0.4. See hfd_options["ad_tol"] for
         further explanation.
-    hfd_options['ad_tol'] : int, optional
+    hfd_options["ad_tol"] : int, optional
         Absolute tolerance for rejecting the datafile. Default is
         `ad_tol` = 1024. If the datafile contains bad records (not
         readable, out-of-bounds, or flagged data), the partitioning
         analysis is performed using the longest stretch of consecutive
         good data records found, unless that stretch is too short, in
         which case the analysis is aborted. The criteria for judging
-        'too short' can be specified in both relative and absolute
+        "too short" can be specified in both relative and absolute
         terms: the datafile is rejected if the good stretch is a
         fraction of the total data that is less than `rd_tol`, and/or is
         less than `ad_tol` records long.
-    hfd_options['ustar_tol'] : float
+    hfd_options["ustar_tol"] : float
         If the friction velocity (m/s) determined from the high
         frequency data is less than `ustar_tol`, the
         partitioning analysis is aborted due to insufficient turbulence.
-        Defalult is `hfd_options['ustar_tol']` = 0.1 (m/s).
+        Defalult is `hfd_options["ustar_tol"]` = 0.1 (m/s).
 
     wue_options: dict
-        Parameters for estimating water use efficiency. 'canopy_ht',
-        'meas_ht', and 'ppath' are required keys.
-    wue_options['canopy_ht'] : float or callable
-        Vegetation canopy height (m). If callable must accept a datetime
+        Parameters for estimating water use efficiency. "canopy_ht",
+        "meas_ht", and "ppath" are required keys.
+    wue_options["canopy_ht"] : float or callable
+        Vegetation canopy height (m). If callable must accept a date
         object as its sole argument and return a float value.
-    wue_options['meas_ht'] : float or callable
+    wue_options["meas_ht"] : float or callable
         Eddy covariance measurement height (m). If callable must accept
-        a datetime object as its sole argument and return a float value.
-    wue_options['ppath'] : {'C3', 'C4'}
+        a date object as its sole argument and return a float value.
+    wue_options["heights"] : str or callable, optional
+        Alternative way to specify (canopy_ht, meas_ht). If str, is the
+        name of a csv file with date strings in the first column,
+        canopy heights in the second, and measurement heights in the
+        third. If callable, accepts date as its sole argument and
+        returns the tuple of heights.
+    wue_options["ppath"] : {"C3", "C4"}
         Photosynthetic pathway.
-    wue_options['ci_mod'] : str
-        Valid values: 'const_ratio', 'const_ppm', 'linear', 'sqrt'.
+    wue_options["ci_mod"] : str
+        Valid values: "const_ratio", "const_ppm", "linear", "sqrt".
         See: :func:`~fluxpart.wue.water_use_efficiency`.
-    wue_options['ci_mod_param'] : float or (float, float)
+    wue_options["ci_mod_param"] : float or (float, float)
         Paramter values to be used with `ci_mod`.
         See: :func:`~fluxpart.wue.water_use_efficiency`.
-    wue_options['leaf_temper'] : float
+    wue_options["leaf_temper"] : float
         Canopy leaf temperature (K). If not specified, it is assumed to
         be equal to the air temperature See:
         :func:`~fluxpart.wue.water_use_efficiency`.
-    wue_options['leaf_temper_corr'] : float
+    wue_options["leaf_temper_corr"] : float
         Offset adjustment applied to canopy temperature (K). Default is
         zero. See: :func:`~fluxpart.wue.water_use_efficiency`.
-    wue_options['diff_ratio']: float, optional
+    wue_options["diff_ratio"]: float, optional
         Ratio of molecular diffusivities for water vapor and CO2.
         Default is `diff_ratio` = 1.6.
         See: :func:`~fluxpart.wue.water_use_efficiency`.
 
     part_options : dict
         Options for the fvs partitioning algorithm
-    part_options['adjust_fluxes'] : bool
+    part_options["adjust_fluxes"] : bool
         If True (default), the final partitioned fluxes are adjusted
         proportionally such that sum of the partitioned fluxes match
         exactly the total fluxes indicated in the original data.
-    part_options['sun'] : 2-tuple = (sunrise, sunset), or callable
-        A 2-tuple of times corresponding to sunrise and sunset. If
-        specified, fluxes for times starting  before sunrise or after
-        sunset will be taken to be all non-stomatal. If callable,
-        it should take a datetime as its sole argument and return the
-        2-tuple of times. Default is (None, None).
-
+    part_options["daytime"] : 2-tuple, str, or callable, optional
+        A 2-tuple of python datetime.time objects or timestamps for
+        (sunrise, sunset). If specified, all fluxes for time intervals
+        ending before sunrise or starting after sunset will be assumed
+        non-stomatal. If callable, function should take a datetime.date
+        object as its sole argument and return a 2-tuple of time objects
+        or stamps. If str, is the name of a csv file with date stamp in
+        the first column, sunrise time in the second, and sunset time in
+        the third.
 
     NOTES
     -----
-    Two pre-defined hfd_formats are available, 'ec.TOA5' and 'ec.TOB1'.
+    Two pre-defined hfd_formats are available, "ec.TOA5" and "ec.TOB1".
 
-    'ec.TOA5'::
+    "ec-TOA5"::
 
         hfd_format = {
-            "filetype": 'csv',
+            "filetype": "csv",
             "skiprows": 4,
             "cols": (2, 3, 4, 5, 6, 7, 8),
             "time_col": 0,
-            "temper_unit": 'C',
+            "temper_unit": "C",
             "unit_convert": {"q": 1e-3, "c": 1e-6, "P": 1e3},
-
+            "na_values": "NAN",
         }
 
-    'ec.TOB1'::
+    "ec-TOB1"::
 
         hfd_format = {
-            "filetype": 'tob1',
-            'cols': (3, 4, 5, 6, 7, 8, 9),
-            "temper_unit": 'C',
+            "filetype": "tob1",
+            "cols": (3, 4, 5, 6, 7, 8, 9),
+            "temper_unit": "C",
             "unit_convert": {"q": 1e-3, "c": 1e-6, "P": 1e3},
         }
 
@@ -243,7 +266,7 @@ def fvs_partition(
     """
     return fvspart(
         file_or_dir,
-        ext,
+        time_sorted,
         interval,
         hfd_format,
         hfd_options,

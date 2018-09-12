@@ -111,7 +111,7 @@ The lines highlighted below specify the data location:
     :emphasize-lines: 3,9
 
 (Note that the file pathnames in this example are Unix-style.
-On Windows, the equivalent would be ``data_files = "C:\media\tower\*_2014_0[4-9]_*``, etc.)
+On Windows, the equivalent would be ``data_files = "C:/media/tower/*_2014_0[4-9]_*``, etc.)
 
 file_or_dir
 ^^^^^^^^^^^
@@ -123,10 +123,10 @@ For example:
 
 .. code-block:: python
 
-    file_or_dir="c:\some\path\file1.dat"
-    file_or_dir="..\some\relpath\file*.tob"
-    file_or_dir="c:\some\path\*_201[12]_0[4-9]_*.dat"
-    file_or_dir=["c:\some\path\file1.tob", "C:\path\file2.tob"] 
+    file_or_dir="c:/some/path/file1.dat"
+    file_or_dir="../some/relpath/file*.tob"
+    file_or_dir="c:/some/path/*_201[12]_0[4-9]_*.dat"
+    file_or_dir=["c:/some/path/file1.tob", "C:/path/file2.tob"] 
     file_or_dir="/some/path"
     file_or_dir=["../path1/*", "C:/path2/filename_??.dat"]
 

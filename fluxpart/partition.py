@@ -61,6 +61,12 @@ def fvspart_progressive(w, q, c, wue, adjust_fluxes=True):
         wave_lvl = (max_decomp_lvl - cnt, max_decomp_lvl)
 
         fluxes, fvsp = fvspart_series(*lowcut_wqc, wue)
+        if cnt == 0:
+            if fvsp.fvsp_mssg:
+                mssg_for_unfiltered_data = fvsp.fvsp_mssg
+            else:
+                mssg_for_unfiltered_data = fvsp.rootsoln.root_mssg
+
 
         if fvsp.rootsoln.valid_root:
             if adjust_fluxes:
@@ -72,9 +78,10 @@ def fvspart_progressive(w, q, c, wue, adjust_fluxes=True):
     fvsp.wave_lvl = wave_lvl
     if not fvsp.rootsoln.valid_root:
         fvsp.valid_partition = False
-        fvsp.mssg = fvsp.rootsoln.root_mssg
+        fvsp.mssg = mssg_for_unfiltered_data
     if not fvsp.valid_partition:
         fluxes = MassFluxes()
+        fvsp.mssg = mssg_for_unfiltered_data
     return fluxes, fvsp
 
 
@@ -360,10 +367,10 @@ def _check_fvs_assumptions(qcdat):
     lim0 = np.sqrt(qcdat.var_c / qcdat.var_q) / pqc
     lim1 = np.sqrt(qcdat.var_c / qcdat.var_q) * pqc
     if pqc < 0 and FcFq <= lim0:
-        mssg = "pqc={:.4}\nFc/Fq={:.4} <= (sigc/sigq)/pqc={:.4}"
+        mssg = "pqc < 0 and Fc/Fq <= (sigc/sigq)/pqc ({:.4}, {:.4}, {:.4})"
         raise FVSError(mssg.format(pqc, FcFq, lim0))
     if FcFq >= lim1:
-        mssg = "Fc/Fq={:.4} >= (sigc/sigq)*pqc={:.4}"
+        mssg = "Fc/Fq >= (sigc/sigq)*pqc ({:.4}, {:.4})"
         raise FVSError(mssg.format(FcFq, lim1))
 
 

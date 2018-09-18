@@ -37,10 +37,8 @@ def water_use_efficiency(
     leaf_temper_corr=0,
     meas_ht=None,
     canopy_ht=None,
-    heights=None,
     ppath=None,
     diff_ratio=1.6,
-    date=None,
 ):
 
     """Estimate leaf-level water use efficiency.
@@ -60,16 +58,9 @@ def water_use_efficiency(
         `ustar`, friction velocity (m/s);
         `rho_totair`, moist air density (kg/m^3).
     meas_ht : float or callable, optional
-        Eddy covariance measurement height (m). If callable, accepts
-        date as its sole argument and returns the height.
+        Eddy covariance measurement height (m).
     canopy_ht : float or callable, optional
-        Vegetation canopy height (m). If callable, accepts date as its
-        sole argument and returns the height.
-    heights : callable, optional
-        Alternative way to specify the canopy and measurement heights.
-        Accepts a date as its sole argument and returns the tuple
-        (canopy_ht, meas_ht). Overrides values passed as `meas_ht` or
-        `canopy_ht`.
+        Vegetation canopy height (m).
     ppath : {'C3', 'C4'}
         photosynthetic pathway
     ci_mod : {'const_ratio', 'const_ppm', 'linear', 'sqrt'}
@@ -94,8 +85,6 @@ def water_use_efficiency(
     diff_ratio: float, optional
         Ratio of molecular diffusivities for water vapor and CO2.
         Default is `diff_ratio` = 1.6.
-    date: date object or string
-        Date to be used if canopy_ht, meas_ht, or heights is callable.
 
     Returns
     -------
@@ -159,12 +148,6 @@ def water_use_efficiency(
         plants.
 
     """
-    if callable(canopy_ht):
-        canopy_ht = canopy_ht(date)
-    if callable(meas_ht):
-        meas_ht = meas_ht(date)
-    if heights is not None:
-        canopy_ht, meas_ht = heights(date)
     if canopy_ht > meas_ht:
         raise WUEError("canopy_ht is less than meas_ht")
 

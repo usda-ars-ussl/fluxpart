@@ -182,7 +182,10 @@ def fvs_partition(
 
     wue_options: dict
         Parameters for estimating water use efficiency. "canopy_ht",
-        "meas_ht", and "ppath" are required keys.
+        "meas_ht", and "ppath" are required keys, unless "heights" is
+        given (in which case "canopy_ht" and "meas_ht" are ignored).
+        See: :func:`~fluxpart.wue.water_use_efficiency` for more about
+        water use efficiency estimation.
     wue_options["canopy_ht"] : float or callable
         Vegetation canopy height (m). If callable must accept a date
         object as its sole argument and return a float value.
@@ -203,17 +206,19 @@ def fvs_partition(
     wue_options["ci_mod_param"] : float or (float, float)
         Paramter values to be used with `ci_mod`.
         See: :func:`~fluxpart.wue.water_use_efficiency`.
-    wue_options["leaf_temper"] : float
-        Canopy leaf temperature (K). If not specified, it is assumed to
-        be equal to the air temperature See:
-        :func:`~fluxpart.wue.water_use_efficiency`.
+    wue_options["leaf_temper"] : float, str, or callable
+        Canopy leaf temperature. The units (K or C) are whatever is
+        indicated in hfd_format["temper_unit"]. If not specified, the
+        temperature is set to the air temperature. If a str, is the name
+        of a csv file with datetime stamps in the first column and
+        temperatures in the second. If callable, must accept a datetime
+        as its sole argument and return a float value.
     wue_options["leaf_temper_corr"] : float
-        Offset adjustment applied to canopy temperature (K). Default is
-        zero. See: :func:`~fluxpart.wue.water_use_efficiency`.
+        Offset adjustment applied to canopy temperature (C). Default is
+        zero.
     wue_options["diff_ratio"]: float, optional
         Ratio of molecular diffusivities for water vapor and CO2.
         Default is `diff_ratio` = 1.6.
-        See: :func:`~fluxpart.wue.water_use_efficiency`.
 
     part_options : dict
         Options for the fvs partitioning algorithm

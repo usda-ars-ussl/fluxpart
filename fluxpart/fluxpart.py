@@ -157,25 +157,29 @@ def fvspart(
 
     unit_convert = hfd_format.pop("unit_convert", {})
     converters = {k: _converter_func(v, 0.) for k, v in unit_convert.items()}
-    temper_unit = hfd_format.pop("temper_unit")
-    if temper_unit.upper() == "C" or temper_unit.upper() == "CELSIUS":
+    temper_unit = hfd_format.pop("temper_unit").upper()
+    if temper_unit == "C" or temper_unit == "CELSIUS":
         converters["T"] = _converter_func(1., 273.15)
     hfd_format["converters"] = converters
 
+    # TODO: these should work with file objects, not just str name
+    heights, leaf_temper = None, None
+    canopy_ht = wue_options.pop("canopy_ht", None)
+    meas_ht = wue_options.pop("meas_ht", None)
     if "heights" in wue_options:
-        if not callable(wue_options["heights"]):
-            wue_options["heights"] = (
-                _lookup(wue_options["heights"], 0, 1, 2)
-            )
+        heights = wue_options.pop("heights")
+        if not callable(heights):
+            heights = _lookup(heights, 0, 1, 2)
+    if "leaf_temper" in wue_options:
+        leaf_temper = wue_options.pop("leaf_temper")
+        if isinstance(leaf_temper, str):
+            leaf_temper = _lookup(leaf_temper, 0, 1)
     if "daytime" in part_options:
-        # TODO: should work with file objects, not just str name
         if isinstance(part_options["daytime"], str):
             part_options["daytime"] = (
                 _lookup(part_options["daytime"], 0, 1, 2)
             )
-
     if meas_wue:
-        # TODO: should work with file objects, not just str name
         if isinstance(meas_wue, str):
             meas_wue = _lookup(meas_wue, 0, 1)
 
@@ -277,9 +281,32 @@ def fvspart(
                 else:
                     leaf_wue = WUE(wue=float(meas_wue))
             else:
+                if heights is not None:
+                    if callable(heights):
+                        canopy_ht, meas_ht = heights(date)
+                    else:
+                        canopy_ht, meas_ht = heights
+                else:
+                    if callable(canopy_ht):
+                        canopy_ht = canopy_ht(date)
+                    if callable(meas_ht):
+                        meas_ht = meas_ht(date)
+                leaf_t = None
+                if leaf_temper is not None:
+                    if callable(leaf_temper):
+                        leaf_t = leaf_temper(datetime)
+                    else:
+                        leaf_t = float(leaf_temper)
+                    if temper_unit == "C" or temper_unit == "CELSIUS":
+                        leaf_t = leaf_t + 273.15
                 leaf_wue = water_use_efficiency(
-                    hfsum, date=date, **wue_options
+                    hfsum,
+                    canopy_ht=canopy_ht,
+                    meas_ht=meas_ht,
+                    leaf_temper=leaf_t,
+                    **wue_options
                 )
+
         except WUEError as e:
             results.append(
                 FVSResult(

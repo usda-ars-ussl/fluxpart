@@ -46,10 +46,32 @@ def test_flux_partition():
     npt.assert_allclose(fvsp.df["fvsp_solution"]["var_cp"], 18.9272, atol=1)
     assert_flux_components(fvsp.df["fluxes"], matlab_fluxes)
 
+    # test reading heights and temperature from file
+    wue_data = {
+        "heights": os.path.join(TESTDIR, "data/heights.csv"),
+        "leaf_temper": os.path.join(TESTDIR, "data/leaf_temper.csv"),
+        "ppath": "C3",
+        "ci_mod": "const_ppm",
+        "diff_ratio": 1 / 0.7,
+    }
+
+    fvsp = fvs_partition(fname, wue_options=wue_data, hfd_format="ec-TOA5")
+
+    npt.assert_allclose(fvsp.df["fvsp_solution"]["var_cp"], 18.9272, atol=1)
+    assert_flux_components(fvsp.df["fluxes"], matlab_fluxes)
+
     # soln is obtained after some wavelet filtering
     fname = os.path.join(
         TESTDIR, "data/TOA5_6843.ts_Above_2012_06_07_1245.dat"
     )
+
+    wue_data = {
+        "meas_ht": 7.11,
+        "canopy_ht": 4.42,
+        "ppath": "C3",
+        "ci_mod": "const_ppm",
+        "diff_ratio": 1 / 0.7,
+    }
 
     matlab_fluxes = SimpleNamespace(
         Fcp=-0.866856083109642,

@@ -15,13 +15,13 @@ the water vapor flux into transpiration and direct evaporation components,
 and the carbon dioxide flux into photosynthesis and respiration components.
 The flux variance similarity (FVS) partitioning method [SS08]_ is based on correlation analyses of eddy covariance data.
 **Fluxpart** is a Python 3  module that implements the FVS method.
-Estimates of constituent flux components are obtained from processing high-frequency (e.g., 10 Hz) eddy covariance data.
+Estimates of constituent flux components are obtained from processing high-frequency eddy covariance data.
 
 .. _ecwiki: https://en.wikipedia.org/wiki/Eddy_covariance
 
 __ ecwiki_
 
-The FVS flux partitioning method has been described at length in the literature ([SS08]_, [SK10]_, [PRV14]_).
+The FVS flux partitioning method is described at length in the literature ([SS08]_, [SK10]_, [PRV14]_).
 We present here a brief overview.
 
 Monin-Obukhov similarity theory implies that high-frequency time series for scalars,
@@ -75,7 +75,7 @@ where
 :math:`c_r'` and :math:`c_p'` are the |CO2| concentration fluctuations associated with non-stomatal (respiration) and stomatal (photosynthesis) controls, respectively;
 and :math:`F_{q_e}`, :math:`F_{q_t}`, :math:`F_{c_r}`, and :math:`F_{c_p}` are the corresponding flux components.
 
-These definitions along with some assumptions about the relative transfer efficiencies of various flux quantities allowed Scanlon and Sahu [SS08]_to derive a system of equations
+These definitions along with some assumptions about the relative transfer efficiencies of various flux quantities allowed Scanlon and Sahu [SS08]_ to derive a system of equations
 that can be used to calculate the constituent flux components.
 We formulate this two-equation system as
 
@@ -175,7 +175,7 @@ No solution for a given time interval may be the correct outcome.
 For example, meteorological conditions may be incompatible with the theory or assumptions underlying the FVS method.
 On the other hand, Scanlon and Sahu [SS08]_ found that, in some instances,
 the root cause of failure may be the presence of large-scale eddies that affect flux variance similarity relationships but do not contribute significantly to fluxes.
-**Flxupart** retries failed analyses after filtering :math:`q`, :math:`c`, and :math:`w` time series data (using `PyWavelets`__, [LWGW+06]_).
+**Fluxpart** retries failed analyses after filtering :math:`q`, :math:`c`, and :math:`w` time series data (using `PyWavelets`__, [LWGW+06]_).
 Low-frequency components are progressively removed from the data and the partitioning procedure is applied at each stage, 
 quitting when either a successful solution is found or the decomposition is exhausted.
 **Fluxpart** additionally includes capabilities for applying basic QA/QC to high-frequency eddy covariance data,

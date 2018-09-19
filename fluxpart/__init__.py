@@ -1,2 +1,2 @@
 from .__version__ import __version__
-from fluxpart.fluxpart import flux_partition
+from .api import fpread, fvs_partition

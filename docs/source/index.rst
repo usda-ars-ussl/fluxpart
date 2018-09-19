@@ -10,6 +10,6 @@ Fluxpart
    background
    install
    tutorial
-   examples/index
+   howto/index
    reference
    works_cited

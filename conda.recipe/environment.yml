@@ -1,13 +1,13 @@
-name: fluxpart-env
+name: fp02
 channels:
   - defaults
   - ussl
 dependencies:
-  - python=3.6
-  - fluxpart=0.1.0
-  - ipython=6.2.*
-  - jupyter=1.0.*
-  - matplotlib=2.1.*
-  - numpy=1.13.*
-  - pytest=3.4.*
+  - python=3.7.*
+  - fluxpart=0.2.*
+  - matplotlib=2.2.*
+  - numpy=1.15.*
+  - pandas=0.23.*
+  - pytest=3.7.*
   - pywavelets=0.5.*
+  - attrs=18.*

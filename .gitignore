@@ -42,3 +42,5 @@ docs/source/_background/
 # dotenv
 .env
 .vscode
+tags
+.ipynb_checkpoints

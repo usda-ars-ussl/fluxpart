@@ -1,67 +1,130 @@
-from math import exp
-import pkg_resources
+from copy import deepcopy
+import datetime as pydatetime
+from functools import lru_cache
+from glob import iglob
+import os
+import pickle
+
+import attr
+
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 import numpy as np
+import pandas as pd
 
-import fluxpart
-import fluxpart.partition as fp
-import fluxpart.wue as wue
-import fluxpart.util as util
-import fluxpart.hfdata as hfdata
-from fluxpart.containers import Fluxes, WUE, Result, RootSoln, HFSummary
-from fluxpart.containers import QCData
-from fluxpart.constants import SPECIFIC_GAS_CONSTANT as Rgas
-
-DEFAULT_WUE_OPTIONS = {
-    'ci_mod': 'const_ratio',
-    'ci_mod_param': None,
-    'leaf_temper': None,
-    'leaf_temper_corr': 0,
-    'diff_ratio': 1.6}
-
-DEFAULT_HFD_OPTIONS = {
-    'cols': (1, 2, 3, 4, 5, 6, 7),
-    'unit_convert': None,
-    'temper_unit': 'K',
-    'bounds': None,
-    'flags': None,
-    'rd_tol': 0.4,
-    'ad_tol': 1024,
-    'ustar_tol': 0.1,
-    'correcting_external': True}
-
-DEFAULT_PART_OPTIONS = {
-    'adjusting_fluxes': True}
-
-VERSION = fluxpart.__version__
-
-NULL_RESULT = {
-    'label': "",
-    'result': Result(*([""] * 5)),
-    'fluxes': Fluxes(*np.full(15, np.nan)),
-    'hfsummary': HFSummary(*np.full(18, np.nan)),
-    'wue': WUE(*np.full(13, np.nan)),
-    'rootsoln': RootSoln(*np.full(6, np.nan)),
-    'qcdata': QCData(*np.full(6, np.nan))}
+from .__version__ import __version__
+from .wue import water_use_efficiency, WUEError
+from .hfdata import (
+    HFData,
+    HFSummary,
+    HFDataSource,
+    HFDataReadError,
+    TooFewDataError,
+)
+from .partition import fvspart_progressive, FVSPSolution
+from .util import vapor_press_deficit
+from .containers import AllFluxes, WUE
 
 
-def flux_partition(fname, meas_wue=None, hfd_options=None, wue_options=None,
-                   part_options=None, label=None):
+EC_TOA5 = {
+    "filetype": "csv",
+    "skiprows": 4,
+    "time_col": 0,
+    "cols": (2, 3, 4, 5, 6, 7, 8),
+    "temper_unit": "C",
+    "unit_convert": dict(q=1e-3, c=1e-6, P=1e3),
+    "na_values": "NAN",
+}
+
+EC_TOB1 = {
+    "filetype": "tob1",
+    "time_col": 0,
+    "cols": (3, 4, 5, 6, 7, 8, 9),
+    "temper_unit": "C",
+    "unit_convert": dict(q=1e-3, c=1e-6, P=1e3),
+}
+
+HFD_FORMAT = EC_TOA5
+
+WUE_OPTIONS = {
+    "ci_mod": "const_ratio",
+    "ci_mod_param": None,
+    "leaf_temper": None,
+    "leaf_temper_corr": 0,
+    "diff_ratio": 1.6,
+}
+
+HFD_OPTIONS = {
+    "bounds": {"c": (0, np.inf), "q": (0, np.inf)},
+    "rd_tol": 0.5,
+    "ad_tol": 1024,
+    "ustar_tol": 0.1,
+    "correct_external": True,
+}
+
+PART_OPTIONS = dict(adjust_fluxes=True)
+
+_bad_ustar = "ustar = {:.4} <= ustar_tol = {:.4}"
+_bad_vpd = "vpd = {:.4} Pa <= 0"
+_bad_qflux = "Fq = cov(w,q) = {:.4} <= 0"
+_night_mssg = "Nighttime, fluxes all non-stomatal"
+_fp_result_str = (
+    "===============\n"
+    "Fluxpart Result\n"
+    "===============\n"
+    "fluxpart version = {version}\n"
+    "date = {date}\n"
+    "---------------\n"
+    "dataread = {dataread}\n"
+    "attempt_partition = {attempt_partition}\n"
+    "partition_success = {partition_success}\n"
+    "mssg = {mssg}\n"
+    "label = {label}\n"
+    "sunrise = {sunrise}\n"
+    "sunset = {sunset}\n"
+    + AllFluxes().results_str()
+    + "\n"
+    + HFSummary().results_str()
+    + "\n"
+    + WUE().results_str()
+    + "\n"
+    + FVSPSolution().results_str()
+)
+
+
+class Error(Exception):
+    pass
+
+
+class FluxpartError(Error):
+    def __init__(self, message):
+        self.message = message
+
+
+def fvspart(
+    file_or_dir,
+    time_sorted=False,
+    interval=None,
+    hfd_format=None,
+    hfd_options=None,
+    meas_wue=None,
+    wue_options=None,
+    part_options=None,
+    label=None,
+    stdout=True,
+    verbose=True,
+):
     """Partition CO2 & H2O fluxes into stomatal & nonstomatal components.
 
-    This is the primary user interface for :mod:`Fluxpart`. The function
-    provides a full implementation of the flux partitioning algorithm: it
-    reads high frequency eddy covariance data, performs necessary data
-    transformations and QA/QC, analyzes water vapor and carbon dioxide
-    fluxes, and partitions the fluxes into stomatal (transpiration,
-    photosynthesis) and nonstomatal (evaporation, respiration)
-    components using the flux variance similarity method of [SS08]_.
+    Provides a full implementation of the flux variance similarity
+    partitioning algorithm [SS08]_[SAAS+18]_: reads high frequency eddy
+    covariance data; performs data transformations and data QA/QC;
+    analyzes water vapor and carbon dioxide fluxes; and partitions the
+    fluxes into stomatal (transpiration, photosynthesis) and nonstomatal
+    (evaporation, respiration) components.
 
-    The fluxpart submodule is imported in __init__ so this function can
-    imported without referencing the submodule:
-    ``import fluxpart.flux_partition``.
-
-    The following notation is used in variable naming to represent
-    meteorological quantities::
+    The following notation is used in variable naming and documentation
+    to represent meteorological quantities::
 
         u, v, w = wind velocities
         q = water vapor mass concentration
@@ -71,282 +134,556 @@ def flux_partition(fname, meas_wue=None, hfd_options=None, wue_options=None,
 
     Parameters
     ----------
-    fname : str
-        Name of delimited file containing high-frequency eddy covariance
-        time series data.
-    hfd_options : dict, optional
-        Dictionary of parameters specifying options for reading, quality
-        control, and correcting high-frequency eddy covariance data. See
-        ``Other parameters`` section for a listing of valid
-        `hfd_options` fields. Note that `hfd_options` is optional only
-        if the high-frequency data being read are all in SI units and
-        the file is formatted according to the default options; see
-        `hfd_options['unit_convert']` and `hfd_options['temper_unit']`
-        for information about specifying and converting data units.
-    meas_wue : float, optional
-        Measured (or otherwise prescribed) leaf-level water use
-        efficiency (kg CO2 / kg H2O). Note that by definition,
-        `meas_wue` must be a negative value (< 0).
-    wue_options : dict, required if `meas_wue` is not provided
-        Dictionary of parameters and options used to estimate water use
-        efficiency if `meas_wue` is not provided. See ``Other
-        parameters`` section for a description of valid fields for
-        `wue_options`. If specifying `wue_options`, it is always
-        required to provide values for the 'canopy_ht', 'meas_ht', and
-        'ppath' fields. Other entries are optional.
-    part_options : dict, optional
-        Dictionary of options for the flux partitioning procedure. See
-        ``Other parameters`` section for a listing of valid options.
-    label : optional
-        Optional identification label/object for the data set. Could be
-        a str, int, datetime object, etc.
+    For parameters explanation see: :func:`~fluxpart.api.fvs_partition`
 
     Returns
     -------
-    dict
-        {'result': :class:`~fluxpart.containers.Result`,
-        'fluxes': :class:`~fluxpart.containers.Fluxes`,
-        'hfsummary': :class:`~fluxpart.containers.HFSummary`,
-        'wue': :class:`~fluxpart.containers.WUE`,
-        'rootsoln': :class:`~fluxpart.containers.RootSoln`,
-        'qcdata': :class:`~fluxpart.containers.QCData`,
-        'label': `label`}
-
-    Other Parameters
-    ----------------
-    hfd_options['cols'] : 7*(int,)
-        7-tuple of integers indicating the column numbers of `fname`
-        that contain series data for (u, v, w, q, c, T, P), in that
-        order. Uses 0-based indexing. Default is (1, 2, 3, 4, 5, 6, 7)
-        (thus the first column (=0) in the file is not read)
-    hfd_options['unit_convert'] : dict
-        Dictionary of multiplication factors required to convert any u,
-        v, w, q, c, or P data not in SI units to SI units (m/s, kg/m^3,
-        Pa). (Note T is not in that list). The dictionary keys are the
-        variable names. For example, if all data in `fname`
-        are in SI units except P and c, which are in units of kPa and
-        mg/m^3, respectively, then set:
-        ``hfd_options['unit_convert'] = {'P': 1e3, 'c': 1e-6}``,
-        since it is necessary to multiply the kPa pressure data by 1e3
-        to obtain the SI pressure unit (Pa), and the mg/m^3 CO2 data by
-        1e-6 to obtain the SI concentration unit (kg/m^3).
-    hfd_options['temper_unit'] : {'K', 'C'}
-        The units of the temperature data T in `fname`. Default is the
-        SI unit, 'K'.
-    hfd_options['bounds'] : dict
-        Dictionary specifying any prescribed lower and upper bounds for
-        valid data. Dictionary entries have the form
-        ``varname: (float, float)``, where varname is one of 'u', 'v',
-        'w', 'q', 'c', 'T', or 'P', and the 2-tuple holds values for the
-        lower and upper bounds: ``(lower, upper)``.  Data records are
-        rejected if a variable in the record is outside the prescribed
-        bounds. Default is
-        ``bounds = {'c': (0, np.inf), 'q': (0, np.inf)}`` such that data
-        records are rejected if c or q data are not positive values.
-    hfd_options['flags'] : 2-tuple or list of 2-tuples
-        Specifies that one or more columns in `fname` are used to flag
-        bad data records. Each tuple is of the form (col, badval),
-        where col is an int specifying the column number containing the
-        flag (0-based indexing), and badval is the value of the flag
-        that indicates a bad data record. Default is None.
-    hfd_options['rd_tol'] : float
-        Relative tolerance for rejecting the datafile. Default is
-        'hfd_options['rd_tol']` = 0.4. See
-        :class:`~fluxpart.hfdata.HFData`.
-    hfd_options['ad_tol'] : int
-        Absolute tolerance for rejecting the datafile. Default is
-        `hfd_options['ad_tol']` = 1024. See
-        :class:`~fluxpart.hfdata.HFData`.
-    hfd_options['ustar_tol'] : float
-        If the friction velocity (m/s) determined from the high
-        frequency data is less than `hfd_options['ustar_tol']`, the
-        partitioning analysis is aborted due to insufficient turbulence.
-        Defalult is `hfd_options['ustar_tol']` = 0.1 (m/s).
-    hfd_options['correcting_external'] : bool, optional
-        If True (default), the water vapor and carbon dioxide series
-        data are corrected for external fluctuations associated with air
-        temperature and vapor density according to [WPL80]_ and [DK07]_.
-    hfd_options[ other keys ]
-        All other key:value pairs in `hfd_options` are passed as keyword
-        arguments to numpy.genfromtxt_ (where the file is read). These
-        keywords are often required to specify the details of the
-        formatting of the delimited datafile.  Among the most
-        commonly required are: 'delimiter', a str, int, or sequence
-        that is used to separate values or define column widths (default
-        is that any consecutive whitespace delimits values); and
-        'skip_header', an int that specifies the number of lines to skip
-        at the beginning of the file. See numpy.genfromtxt_ for a full
-        description of available format options.
-    wue_options['canopy_ht'] : float
-        Vegetation canopy height (m).
-    wue_options['meas_ht'] : float
-        Eddy covariance measurement height (m).
-    wue_options['ppath'] : {'C3', 'C4'}
-        Photosynthetic pathway.
-    wue_options['ci_mod'] : str
-        Valid values: 'const_ratio', 'const_ppm', 'linear', 'sqrt'.
-        See: :func:`~fluxpart.wue.water_use_efficiency`.
-    wue_options['ci_mod_param'] : float or (float, float)
-        Paramter values to be used with `ci_mod`.
-        See: :func:`~fluxpart.wue.water_use_efficiency`.
-    wue_options['leaf_temper'] : float
-        Canopy leaf temperature (K). If not specified, it is assumed to
-        be equal to the air temperature. See:
-        :func:`~fluxpart.wue.water_use_efficiency`.
-    wue_options['leaf_temper_corr'] : float
-        Offset adjustment applied to canopy temperature (K).
-        See: :func:`~fluxpart.wue.water_use_efficiency`.
-    wue_options['diff_ratio']: float, optional
-        Ratio of molecular diffusivities for water vapor and CO2.
-        Default is `diff_ratio` = 1.6.
-        See: :func:`~fluxpart.wue.water_use_efficiency`.
-    part_options['adjusting_fluxes'] : bool
-        If True (default), the final partitioned fluxes are adjusted
-        proportionally such that sum of the partitioned fluxes match
-        exactly the total fluxes indicated in the original data.
-
-
-    .. _numpy.genfromtxt:
-        http://docs.scipy.org/doc/numpy/reference/generated/numpy.genfromtxt.html
+    :class:`~fluxpart.fluxpart.FluxpartResult`
 
     """
+    if hfd_format is None:
+        hfd_format = deepcopy(HFD_FORMAT)
+    elif isinstance(hfd_format, str) and hfd_format.upper() == "EC-TOA5":
+        hfd_format = deepcopy(EC_TOA5)
+    elif isinstance(hfd_format, str) and hfd_format.upper() == "EC-TOB1":
+        hfd_format = deepcopy(EC_TOB1)
+    else:
+        hfd_format = deepcopy(hfd_format)
+        _validate_hfd_format(hfd_format)
 
-    null_result = NULL_RESULT
-    # py3.5 dictionary merge/update
-    hfd_options = {**DEFAULT_HFD_OPTIONS, **(hfd_options or {})}
-    wue_options = {**DEFAULT_WUE_OPTIONS, **(wue_options or {})}
-    part_options = {**DEFAULT_PART_OPTIONS, **(part_options or {})}
+    hfd_options = {**HFD_OPTIONS, **(hfd_options or {})}
+    wue_options = {**WUE_OPTIONS, **(wue_options or {})}
+    part_options = {**PART_OPTIONS, **(part_options or {})}
 
-    usecols = np.array(hfd_options.pop('cols'), dtype=int).reshape(7,)
+    unit_convert = hfd_format.pop("unit_convert", {})
+    converters = {k: _converter_func(v, 0.) for k, v in unit_convert.items()}
+    temper_unit = hfd_format.pop("temper_unit").upper()
+    if temper_unit == "C" or temper_unit == "CELSIUS":
+        converters["T"] = _converter_func(1., 273.15)
+    hfd_format["converters"] = converters
 
-    converters = None
-    unit_convert = hfd_options.pop('unit_convert')
-    if unit_convert:
-        converters = {
-            k: _converter_func(float(v), 0.) for k, v in unit_convert.items()}
-
-    temper_unit = hfd_options.pop('temper_unit')
-    if temper_unit.upper() == 'C' or temper_unit.upper() == 'CELSIUS':
-        converters = converters or {}
-        converters['T'] = _converter_func(1., 273.15)
-
-    correcting_external = hfd_options.pop('correcting_external')
-    ustar_tol = hfd_options.pop('ustar_tol')
-
-    # read high frequency data
-    try:
-        hfdat = hfdata.HFData(fname, cols=usecols, converters=converters,
-                              **hfd_options)
-    except hfdata.Error as err:
-        mssg = 'High frequency data error: ' + err.args[0]
-        result = Result(version=VERSION, dataread=False,
-                        attempt_partition=False, valid_partition=False,
-                        mssg=mssg)
-        return {**null_result,
-                'label': label,
-                'result': result}
-
-    # preliminary data processing and analysis
-    hfdat.truncate()
-    if correcting_external:
-        hfdat.qc_correct()
-    hfsum = hfdat.summarize()
-
-    # exit if friction velocity is too low (lack of turbulence)
-    if hfsum.ustar < ustar_tol:
-        mssg = ('ustar = {:.4} is less than ustar_tol = {:.4}'.
-                format(hfsum.ustar, ustar_tol))
-        result = Result(version=VERSION, dataread=True, attempt_partition=False,
-                        valid_partition=False, mssg=mssg)
-        return {**null_result,
-                'label': label,
-                'result': result,
-                'hfsummary': hfsum}
-
-    # exit if atmospheric vapor pressure deficit is <= 0
-    Tr = 1 - 373.15 / hfsum.T
-    esat = 101325. * (
-        exp(13.3185 * Tr - 1.9760 * Tr**2 - 0.6445 * Tr**3 - 0.1299 * Tr**4))
-    vpd = esat - hfsum.rho_vapor * Rgas.vapor * hfsum.T
-    if vpd <= 0:
-        mssg = 'Vapor pressure deficit {}'.format(vpd)
-        result = Result(version=VERSION, dataread=True, attempt_partition=False,
-                        valid_partition=False, mssg=mssg)
-        return {**null_result,
-                'label': label,
-                'result': result,
-                'hfsummary': hfsum}
-
-    # exit if water vapor flux is downward (negative)
-    if hfsum.cov_w_q <= 0:
-        mssg = ('cov(w,q) = {:.4} <= 0 is incompatible with partitioning '
-                'algorithm'.format(hfsum.cov_w_q))
-        result = Result(version=VERSION, dataread=True, attempt_partition=False,
-                        valid_partition=False, mssg=mssg)
-        return {**null_result,
-                'label': label,
-                'result': result,
-                'hfsummary': hfsum}
-
-    # get or calculate water use efficiency
+    # TODO: these should work with file objects, not just str name
+    heights, leaf_temper = None, None
+    canopy_ht = wue_options.pop("canopy_ht", None)
+    meas_ht = wue_options.pop("meas_ht", None)
+    if "heights" in wue_options:
+        heights = wue_options.pop("heights")
+        if not callable(heights):
+            heights = _lookup(heights, 0, 1, 2)
+    if "leaf_temper" in wue_options:
+        leaf_temper = wue_options.pop("leaf_temper")
+        if isinstance(leaf_temper, str):
+            leaf_temper = _lookup(leaf_temper, 0, 1)
+    if "daytime" in part_options:
+        if isinstance(part_options["daytime"], str):
+            part_options["daytime"] = _lookup(part_options["daytime"], 0, 1, 2)
     if meas_wue:
-        leaf_wue = WUE(float(meas_wue), *np.full(12, np.nan))
-    else:
+        if isinstance(meas_wue, str):
+            meas_wue = _lookup(meas_wue, 0, 1)
+
+    if stdout:
+        print("Getting filenames ...")
+    files = _files(file_or_dir)
+    if len(files) == 0:
+        print("No files found!")
+        return
+    if not time_sorted:
+        if stdout:
+            print("Reading {} file datetimes ...".format(len(files)))
+        times = _peektime(files, **hfd_format)
+        if stdout:
+            print("Time sorting data files ...")
+        sorted_files = [f for t, f in sorted(zip(times, files))]
+    if stdout:
+        print("Creating data source ...")
+
+    reader = HFDataSource(sorted_files, **hfd_format).reader(interval=interval)
+    results = []
+    if stdout:
+        print("Beginning partitioning analyses ...")
+
+    while True:
         try:
-            leaf_wue = wue.water_use_efficiency(hfsum, **wue_options)
-        except wue.Error as err:
-            result = Result(version=VERSION, dataread=True, attempt_partition=False,
-                            valid_partition=False, mssg=err.args[0])
-            return {**null_result,
-                    'label': label,
-                    'result': result,
-                    'hfsummary': hfsum}
+            hfdat = HFData(next(reader))
+        except HFDataReadError as e:
+            results.append(FVSResult(label=label, mssg=e.args[0]))
+            continue
+        except StopIteration:
+            break
 
-    # compute partitioned fluxes
-    adjusting_fluxes = part_options['adjusting_fluxes']
-    pout = fp.partition_from_wqc_series(hfdat['w'], hfdat['q'], hfdat['c'],
-                                        leaf_wue.wue, adjusting_fluxes)
+        datetime = hfdat.dataframe.index[0]
+        date = datetime.date()
+        time = datetime.time()
+        if stdout:
+            print("Processing {}".format(datetime))
 
-    # collect results and return
-    result = Result(version=VERSION, dataread=True,
-                    attempt_partition=True,
-                    valid_partition=pout['valid_partition'],
-                    mssg=pout['partmssg'])
+        sunrise, sunset = None, None
+        nighttime = False
+        if "daytime" in part_options:
+            if callable(part_options["daytime"]):
+                sunrise, sunset = part_options["daytime"](date)
+            else:
+                sunrise, sunset = part_options["daytime"]
+            sunrise = pd.to_datetime(sunrise).time()
+            sunset = pd.to_datetime(sunset).time()
+            # shift sunrise so we partition if rise occurs during interval
+            if interval:
+                sunrise = pd.Timestamp.combine(date, sunrise)
+                sunrise = (sunrise - pd.Timedelta(interval)).time()
+            nighttime = time < sunrise or time > sunset
 
-    if pout['valid_partition']:
-        fluxes = Fluxes(
-            *pout['fluxcomps'],
-            LE=util.qflux_mass_to_heat(pout['fluxcomps'].wq, hfsum.T),
-            LEt=util.qflux_mass_to_heat(pout['fluxcomps'].wqt, hfsum.T),
-            LEe=util.qflux_mass_to_heat(pout['fluxcomps'].wqe, hfsum.T),
-            Fq_mol=util.qflux_mass_to_mol(pout['fluxcomps'].wq),
-            Fqt_mol=util.qflux_mass_to_mol(pout['fluxcomps'].wqt),
-            Fqe_mol=util.qflux_mass_to_mol(pout['fluxcomps'].wqe),
-            Fc_mol=util.cflux_mass_to_mol(pout['fluxcomps'].wc),
-            Fcp_mol=util.cflux_mass_to_mol(pout['fluxcomps'].wcp),
-            Fcr_mol=util.cflux_mass_to_mol(pout['fluxcomps'].wcr))
-    else:
-        fluxes = Fluxes(*np.full(15, np.nan))
+        try:
+            hfdat, hfsum = _set_hfdata(hfdat, **hfd_options)
+        except (TooFewDataError, FluxpartError) as e:
+            results.append(
+                FVSResult(
+                    label=datetime,
+                    mssg=e.args[0],
+                    dataread=True,
+                    attempt_partition=False,
+                    partition_success=False,
+                    sunrise=sunrise,
+                    sunset=sunset,
+                )
+            )
+            if stdout and verbose:
+                print(e.args[0])
+            continue
 
-    return {'label': label,
-            'result': result,
-            'fluxes': fluxes,
-            'hfsummary': hfsum,
-            'wue': leaf_wue,
-            'rootsoln': pout['rootsoln'],
-            'qcdata': pout['qcdata']}
+        if nighttime and hfsum.cov_w_c >= 0:
+            fluxes = AllFluxes(
+                temper_kelvin=hfsum.T, **_set_all_fluxes_nonstomatal(hfsum)
+            )
+            mssg = _night_mssg
+            results.append(
+                FVSResult(
+                    label=datetime,
+                    attempt_partition=False,
+                    partition_success=True,
+                    mssg=mssg,
+                    dataread=True,
+                    fluxes=fluxes,
+                    hfsummary=hfsum,
+                    sunrise=sunrise,
+                    sunset=sunset,
+                )
+            )
+            if stdout and verbose:
+                print(mssg)
+            continue
+
+        try:
+            if meas_wue:
+                if callable(meas_wue):
+                    leaf_wue = WUE(wue=meas_wue(datetime))
+                else:
+                    leaf_wue = WUE(wue=float(meas_wue))
+            else:
+                if heights is not None:
+                    if callable(heights):
+                        canopy_ht, meas_ht = heights(date)
+                    else:
+                        canopy_ht, meas_ht = heights
+                else:
+                    if callable(canopy_ht):
+                        canopy_ht = canopy_ht(date)
+                    if callable(meas_ht):
+                        meas_ht = meas_ht(date)
+                leaf_t = None
+                if leaf_temper is not None:
+                    if callable(leaf_temper):
+                        leaf_t = leaf_temper(datetime)
+                    else:
+                        leaf_t = float(leaf_temper)
+                    if temper_unit == "C" or temper_unit == "CELSIUS":
+                        leaf_t = leaf_t + 273.15
+                leaf_wue = water_use_efficiency(
+                    hfsum,
+                    canopy_ht=canopy_ht,
+                    meas_ht=meas_ht,
+                    leaf_temper=leaf_t,
+                    **wue_options,
+                )
+
+        except WUEError as e:
+            results.append(
+                FVSResult(
+                    label=datetime,
+                    mssg=e.args[0],
+                    dataread=True,
+                    hfsummary=hfsum,
+                    sunrise=sunrise,
+                    sunset=sunset,
+                )
+            )
+            if stdout and verbose:
+                print(e.args[0])
+            continue
+
+        fluxes, fvsp = fvspart_progressive(
+            hfdat["w"].values,
+            hfdat["q"].values,
+            hfdat["c"].values,
+            leaf_wue.wue,
+            part_options["adjust_fluxes"],
+        )
+
+        if fvsp.valid_partition:
+            fluxes = AllFluxes(**attr.asdict(fluxes), temper_kelvin=hfsum.T)
+        else:
+            fluxes = AllFluxes()
+
+        results.append(
+            FVSResult(
+                label=datetime,
+                sunrise=sunrise,
+                sunset=sunset,
+                dataread=True,
+                attempt_partition=True,
+                fluxes=fluxes,
+                partition_success=fvsp.valid_partition,
+                mssg=fvsp.mssg,
+                fvsp_solution=fvsp,
+                hfsummary=hfsum,
+                wue=leaf_wue,
+            )
+        )
+        if stdout and verbose:
+            if fvsp.mssg:
+                print(fvsp.mssg)
+
+    return FluxpartResult(results)
+
+
+def _set_all_fluxes_nonstomatal(hfsum):
+    return dict(
+        Fq=hfsum.cov_w_q,
+        Fqt=0.,
+        Fqe=hfsum.cov_w_q,
+        Fc=hfsum.cov_w_c,
+        Fcp=0.,
+        Fcr=hfsum.cov_w_c,
+    )
+
+
+def _set_only_total_fluxes(hfsum):
+    return dict(
+        Fq=hfsum.cov_w_q,
+        Fqt=np.nan,
+        Fqe=np.nan,
+        Fc=hfsum.cov_w_c,
+        Fcp=np.nan,
+        Fcr=np.nan,
+    )
+
+
+def _set_hfdata(hfdata, bounds, rd_tol, ad_tol, correct_external, ustar_tol):
+    hfdata.cleanse(bounds, rd_tol, ad_tol)
+    hfdata.truncate_pow2()
+    if correct_external:
+        hfdata.correct_external()
+    hfsum = hfdata.summarize()
+    if hfsum.ustar < ustar_tol:
+        raise FluxpartError(_bad_ustar.format(hfsum.ustar, ustar_tol))
+    vpd = vapor_press_deficit(hfsum.rho_vapor, hfsum.T)
+    if vpd <= 0:
+        raise FluxpartError(_bad_vpd.format(vpd))
+    if hfsum.cov_w_q <= 0:
+        raise FluxpartError(_bad_qflux.format(hfsum.cov_w_q))
+    return hfdata, hfsum
+
+
+def flux_partition(*args, **kws):
+    return fvspart(*args, **kws)
+
+
+class FVSResult(object):
+    """FVS partitioning result."""
+
+    def __init__(
+        self,
+        dataread=False,
+        attempt_partition=False,
+        partition_success=False,
+        mssg=None,
+        label=None,
+        sunrise=None,
+        sunset=None,
+        fluxes=AllFluxes(),
+        hfsummary=HFSummary(),
+        wue=WUE(),
+        fvsp_solution=FVSPSolution(),
+    ):
+        """Fluxpart result.
+
+        Parameters
+        ----------
+        dataread, attempt_partition, partition_success : bool
+            Indicates success or failure in reading high frequency data,
+            attempting and obtaining a valid partioning solution.
+        mssg : str
+            Possibly informative message if `dataread` or `partition_success`
+            are False
+        label : optional
+            Pandas datetime.
+        fluxes : :class:`~fluxpart.containers.AllFluxes`
+        fvsp_solution : :class:`~fluxpart.containers.FVSPResult`
+        wue : :class:`~fluxpart.containers.WUE`
+        hfsummary : :class:`~fluxpart.hfdata.HFSummary`
+
+        """
+        self.version = __version__
+        self.dataread = dataread
+        self.attempt_partition = attempt_partition
+        self.partition_success = partition_success
+        self.mssg = mssg
+        self.fluxes = fluxes
+        self.label = label
+        self.sunrise = sunrise
+        self.sunset = sunset
+        self.fvsp_solution = fvsp_solution
+        self.wue = wue
+        self.hfsummary = hfsummary
+
+    def __str__(self):
+        fluxpart = attr.asdict(self.fvsp_solution)
+        wqc_data = fluxpart.pop("wqc_data")
+        rootsoln = fluxpart.pop("rootsoln")
+        return _fp_result_str.format(
+            timenow=pydatetime.datetime.now(),
+            version=self.version,
+            dataread=self.dataread,
+            attempt_partition=self.attempt_partition,
+            partition_success=self.partition_success,
+            mssg=self.mssg,
+            label=self.label,
+            sunrise=self.sunrise,
+            sunset=self.sunset,
+            **attr.asdict(self.fluxes),
+            **attr.asdict(self.hfsummary),
+            **attr.asdict(self.wue),
+            **fluxpart,
+            **wqc_data,
+            **rootsoln,
+        )
+
+
+class FluxpartResult(object):
+    def __init__(self, fp_results):
+        if isinstance(fp_results, str):
+            with open(fp_results, "rb") as f:
+                self.df = pd.read_pickle(f)
+                self.meta = pickle.load(f)
+            return
+        index = pd.DatetimeIndex(r.label for r in fp_results)
+        df0 = pd.DataFrame(
+            (r.fluxes.common_units() for r in fp_results),
+            index=index,
+            columns=fp_results[0].fluxes.common_units().keys(),
+        )
+        df1 = pd.DataFrame(
+            (r.hfsummary.common_units() for r in fp_results),
+            index=index,
+            columns=fp_results[0].hfsummary.common_units().keys(),
+        )
+        df2 = pd.DataFrame(
+            (r.wue.common_units() for r in fp_results),
+            index=index,
+            columns=fp_results[0].wue.common_units().keys(),
+        )
+        df3 = pd.DataFrame(
+            (r.fvsp_solution.common_units() for r in fp_results),
+            index=index,
+            columns=fp_results[0].fvsp_solution.common_units().keys(),
+        )
+        df4 = pd.DataFrame(
+            {
+                "dataread": [r.dataread for r in fp_results],
+                "attempt_partition": [r.attempt_partition for r in fp_results],
+                "partition_success": [r.partition_success for r in fp_results],
+                "mssg": [r.mssg for r in fp_results],
+                "sunrise": [r.sunrise for r in fp_results],
+                "sunset": [r.sunset for r in fp_results],
+            },
+            index=index,
+        )
+        self.df = pd.concat(
+            [df0, df1, df2, df3, df4],
+            axis=1,
+            sort=False,
+            keys=["fluxes", "hfsummary", "wue", "fvsp_solution", "fluxpart"],
+        )
+
+        self.meta = {
+            "version": fp_results[0].version,
+            "date": str(pydatetime.datetime.now()),
+        }
+
+    def __str__(self):
+        if len(self.df) == 1:
+            return self.istr(0)
+        else:
+            return self.df.__str__()
+
+    def __getitem__(self, item):
+        return self.df[item]
+
+    def __getattr__(self, x):
+        return getattr(self.df, x)
+
+    def plot_co2(
+        self,
+        start=None,
+        end=None,
+        units="mass",
+        components=(0, 1, 2),
+        ax=None,
+        **kws,
+    ):
+        if ax is None:
+            ax = plt.gca()
+        if units == "mass":
+            cols = ["Fc", "Fcp", "Fcr"]
+            ylab = r"$\mathrm{CO_2\ Flux\ (mg\ m^{-2}\ s^{-1})}$"
+        else:
+            cols = ["Fc_mol", "Fcp_mol", "Fcr_mol"]
+            ylab = r"$\mathrm{CO_2\ Flux\ (umol\ m^{-2}\ s^{-1})}$"
+        labels = [
+            r"$\mathrm{F_c}$",
+            r"$\mathrm{F_{c_p}}$",
+            r"$\mathrm{F_{c_r}}$",
+        ]
+        cols = [cols[j] for j in components]
+        labels = [labels[j] for j in components]
+        self.df.loc[start:end, ("fluxes", cols)].plot(ax=ax)
+        ax.legend(labels)
+        ax.set_ylabel(ylab)
+        return ax
+
+    def plot_h2o(
+        self,
+        start=None,
+        end=None,
+        units="mass",
+        components=(0, 1, 2),
+        ax=None,
+        **kws,
+    ):
+        if ax is None:
+            ax = plt.gca()
+        if units == "mass":
+            cols = ["Fq", "Fqt", "Fqe"]
+            ylab = r"$\mathrm{H_20\ Flux\ (g\ m^{-2}\ s^{-1})}$"
+        elif units == "mol":
+            cols = ["Fq_mol", "Fqt_mol", "Fqe_mol"]
+            ylab = r"$\mathrm{H_20\ Flux\ (mmol\ m^{-2}\ s^{-1})}$"
+        else:
+            cols = ["LE", "LEt", "LEe"]
+            ylab = r"$\mathrm{LE\ (W\ m^{-2})}$"
+        labels = [
+            r"$\mathrm{F_q}$",
+            r"$\mathrm{F_{q_t}}$",
+            r"$\mathrm{F_{q_e}}$",
+        ]
+
+        cols = [cols[j] for j in components]
+        labels = [labels[j] for j in components]
+
+        self.df.loc[start:end, ("fluxes", cols)].plot(ax=ax)
+        ax.legend(labels)
+        ax.set_ylabel(ylab)
+        return ax
+
+    def istr(self, i):
+        """Return a string representation of the ith result"""
+        return _fp_result_str.format(
+            version=self.meta["version"],
+            date=self.meta["date"],
+            label=self.df.index[i],
+            **self.df.iloc[i]["fluxpart"].to_dict(),
+            **self.df.iloc[i]["fluxes"].to_dict(),
+            **self.df.iloc[i]["fvsp_solution"].to_dict(),
+            **self.df.iloc[i]["hfsummary"].to_dict(),
+            **self.df.iloc[i]["wue"].to_dict(),
+        )
+
+    def save(self, filename):
+        with open(filename, "wb") as f:
+            self.df.to_pickle(f)
+            pickle.dump(self.meta, f)
 
 
 def _converter_func(slope, intercept):
-    """Return a function for linear transform of data when reading file.
-    """
-    def func(stringval):
-        try:
-            return slope * float(stringval.strip()) + intercept
-        except ValueError:
-            return np.nan
+    """Return a function for linear transform of data."""
+
+    def func(val):
+        return slope * val + intercept
+
     return func
 
 
-if __name__ == "__main__":
-    pass
+def _files(file_or_dir):
+    if isinstance(file_or_dir, str):
+        file_or_dir = [file_or_dir]
+    unsorted_files = []
+    for path in file_or_dir:
+        if os.path.isfile(path):
+            unsorted_files.append(path)
+            continue
+        if os.path.isdir(path):
+            path = os.path.join(path, "*")
+        unsorted_files += iglob(path)
+    return unsorted_files
+
+
+def _peektime(files, **kwargs):
+    if kwargs["filetype"] == "csv":
+        tcol = kwargs["time_col"]
+        sep = ","
+        if "delimiter" in kwargs:
+            sep = kwargs["delimiter"]
+        if "sep" in kwargs:
+            sep = kwargs["sep"]
+        datetimes = []
+        for file_ in files:
+            with open(file_, "rt") as f:
+                for _ in range(kwargs["skiprows"]):
+                    f.readline()
+                tstamp = f.readline().split(sep)[tcol].strip("'\"")
+                datetimes.append(pd.to_datetime(tstamp))
+    else:  # "tob1"
+        source = HFDataSource(files, count=5, **kwargs)
+        datetimes = [df.index[0] for df in source.reader(interval=None)]
+    return datetimes
+
+
+def _validate_hfd_format(hfd_format):
+    if "cols" not in hfd_format:
+        raise Error("No value for hfd_format['cols'] given.")
+    if "filetype" not in hfd_format:
+        raise Error("No value for hfd_format['filetype'] given.")
+    if hfd_format["filetype"] not in ("csv", "tob1"):
+        raise Error(f"Unrecognized filetype: {hfd_format['filetype']}")
+
+
+def _lookup(csv_file, date_icol, icol1, icol2=None, method="ffill"):
+    """Create a function for looking up data in csv file.
+    date_icol, icol1, icol2 : int
+        column index for the respective data
+    method : str
+        Interpolation method used with pandas df.index.get_loc. The
+        default 'ffill' returns the PREVIOUS values if no exact date
+        match is found in the lookup.
+
+    """
+    df = pd.read_csv(csv_file, index_col=date_icol, parse_dates=True)
+
+    @lru_cache()
+    def func(date):
+        ix = df.index.get_loc(pd.to_datetime(date), method=method)
+        if icol2 is None:
+            return df.iloc[ix, icol1 - 1]
+        else:
+            return df.iloc[ix, icol1 - 1], df.iloc[ix, icol2 - 1]
+
+    return func

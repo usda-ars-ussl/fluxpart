@@ -6,7 +6,6 @@
 .. _NumPy: http://www.numpy.org
 .. _SciPy: http://www.scipy.org
 .. _Matplotlib: http://matplotlib.org
-.. _IPython: https://ipython.org
 .. _Jupyter: http://jupyter.org
 .. _Jupyter documentation: http://jupyter.readthedocs.io/en/latest/index.html
 .. _Pandas: https://pandas.pydata.org
@@ -15,6 +14,7 @@
 .. _anaconda: https://www.anaconda.com/download
 .. _conda: http://conda.pydata.org/docs/user-guide/index.html
 .. _guide: https://conda.io/docs/user-guide/getting-started.html
+.. _attrs: https://www.attrs.org
 
 ----------------------------------
 For experienced Python/SciPy users
@@ -29,29 +29,21 @@ Requirements
 * Matplotlib_
 * Pandas_
 * PyWavelets_
+* attrs_ 
 
 Recommended
 ~~~~~~~~~~~
 
-* IPython_
 * Jupyter_
 
 Install
 ~~~~~~~
 
-Recommended:
+Recommended::
 
-    Linux, Mac OS X::
-
-        conda install anaconda-client
-        conda env create ussl/fluxpart-env
-        source activate fluxpart-env
-
-    Windows::
-
-        conda install anaconda-client
-        conda env create ussl/fluxpart-env
-        activate fluxpart-env
+    conda install anaconda-client
+    conda env create ussl/fp02
+    conda activate fp02
 
 Alternatively:
 
@@ -92,12 +84,12 @@ The conda getting started guide_ is also a useful resource.
 
 To verify that conda is installed, open a terminal window on Linux or OS X or
 go to the Start menu on Windows and search for and open
-"Anaconda Promt". At the command prompt, enter::
+"Anaconda Prompt". At the command prompt, enter::
 
     conda --version
 
-Conda should respond with the version number of the installed package (e.g.,
-``conda 4.5.5``). If you have an older, previously installed version of conda,
+Conda should respond with the version number of the installed package.
+If you have an older, previously installed version of conda,
 it is advised to update it  with::
 
     conda update conda
@@ -106,28 +98,25 @@ Next, install ``anaconda-client`` into the root environment::
 
     conda install anaconda-client
 
-Finally, create a conda environment containing **fluxpart** and its
-dependencies, as well as some useful libraries for plotting and analysis
-(Jupyter_), by entering::
+Now create a conda environment containing **fluxpart** and its dependencies::
 
-    conda env create ussl/fp020
+    conda env create ussl/fp02
 
-To activate the **fluxpart** environment, enter:
+Finally, activate the **fluxpart** environment::
 
-    Linux, Mac OS X:::
+    conda activate fp02
 
-        source activate fp020
-
-    Windows::
-
-        activate fp020
-
-The command line prompt should now be prepended with ``(fp020)``,
+The command line prompt should now be prepended with ``(fp02)``,
 indicating that the **fluxpart** environment is active in the shell session.
 
 If you are new(ish) to Python_, a good tool for learning and interactively
-building-up **fluxpart** analyses is the `Jupyter notebook`__. From the command
-line, make and cd into a new working directory, e.g.::
+building-up **fluxpart** analyses is the `Jupyter notebook`__. With the
+**fluxpart** environment active, install Jupyter_ with::
+
+    conda install jupyter
+
+From the command line,
+make and cd into a new working directory, e.g.::
 
     mkdir fluxnb
     cd fluxnb
@@ -135,7 +124,7 @@ line, make and cd into a new working directory, e.g.::
 An example notebook and high-frequency eddy covariance data file can be
 downloaded with::
 
-    anaconda download ussl/tutorial-notebook
+    anaconda download ussl/fp-quickstart
     anaconda download ussl/tutorial-data
 
 The Jupyter notebook application can be launched from the command line of an
@@ -146,18 +135,12 @@ active **fluxpart** shell session::
 The Jupyter dashboard will start in a web browser window, and look something
 like this:
 
-TODO
+.. image:: screenshot_jupyter_dashboard.png
 
-..
-   .. image:: screenshot_jupyter_dashboard.png
-
-Clicking on the ``tutorial-notebook.ipynb`` link will open the notebook in a
+Clicking on the ``fp-quickstart.ipynb`` link will open the notebook in a
 new browser tab:
 
-TODO
-
-..
-   .. image:: screenshot_jupyter_notebook.png
+.. image:: screenshot_jupyter_notebook.png
 
 Selecting a
 cell in the notebook and hitting <Shift><Enter> executes the code in the cell.
@@ -168,12 +151,6 @@ getting started with **fluxpart**.
 __ Jupyter_
 
 If at some point it is desired to deactivate the **fluxpart**  environment,
-then:
+then::
 
-    Linux, Mac OS X::
-
-        source deactivate
-
-    Windows::
-
-        deactivate
+    conda deactivate

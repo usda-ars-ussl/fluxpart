@@ -130,7 +130,7 @@ For example:
     file_or_dir="/some/path"
     file_or_dir=["../path1/*", "C:/path2/filename_??.dat"]
 
-Related: HOWTO :ref`performance-howto`
+Related: :ref:`performance-howto`
 
 High frequency data format
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -229,7 +229,7 @@ which is equivalent to:
 With tob1 files, `time_col` is not used.
 The date and time are determined from the named "SECONDS" and "NANOSECONDS" columns.
 
-Related: HOWTO :ref`modifyformat-howto`
+Related: :ref:`modifyformat-howto`
 
 Water Use Efficiency
 ~~~~~~~~~~~~~~~~~~~~
@@ -397,7 +397,7 @@ hfd_options["ad_tol"] \: int, optional
     fraction of the total data that is less than `rd_tol`, and/or is
     less than `ad_tol` records long.
 
-hfd_options["ustar_tol"]\ : float
+hfd_options["ustar_tol"] \: float
     If the friction velocity (m/s) determined from the high
     frequency data is less than `ustar_tol`, the
     partitioning analysis is aborted due to insufficient turbulence.
@@ -411,12 +411,22 @@ hfd_options["ustar_tol"]\ : float
 
 
 
-Results from :func:`~fluxpart.api.fvs_partition`
-------------------------------------------------
+Analysis and Visualization of Results
+-------------------------------------
+
+Perhaps the easiest way to get started working with results is to examine the examples in this Jupyter notebook_.
+Additional detail is provided below.
+
+.. _notebook: https://github.com/usda-ars-ussl/fluxpart/blob/master/docs/notebooks/tutorial_example_results.ipynb
+
+
+
+:class:`~fluxpart.fluxpart.FluxpartResult`
+------------------------------------------
 
 :func:`~fluxpart.api.fvs_partition` returns a :class:`~fluxpart.fluxpart.FluxpartResult` object.
-
 :class:`~fluxpart.fluxpart.FluxpartResult` is the composition of a datetime-indexed pandas_ DataFrame instance with a few convenience methods.
+
 The columns in the DataFrame are multi-indexed. The top level labels are "fluxes", "hfsummary", "wue", "fvsp_solution", and "fluxpart":
 
 FluxpartResult.df.fluxes
@@ -456,18 +466,9 @@ For the fluxes,
 that means CO2 fluxes are in mg or umol per square meter per second,
 and that H2O fluxes are in g or mmol per square meter per second, or in W per square meter.
 
-
-Analyses and visualizations
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
 Because the output from :func:`~fluxpart.api.fvs_partition` exists as a time-indexed pandas_ DataFrame,
 any number of data analyses and visualizations are possible.
-
-Please see this Jupyter_ notebook *LINK* demonstrating a number of examples for working with Fluxpart results.
-
-See also the extensive pandas_ documentation.
-
-.. _Jupyter: http://jupyter.org
+In addition to the notebook_ mentioned above, see the extensive pandas_ documentation for examples.
 
 
 Saving and Opening Results

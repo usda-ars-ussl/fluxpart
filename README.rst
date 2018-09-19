@@ -39,6 +39,28 @@ Features
   for estimating leaf-level water use efficiency.
 
 
+Install
+=======
+
+Recommended:
+
+    conda install anaconda-client
+    conda env create ussl/fp02
+    conda activate fp02
+
+Alternatively:
+
+    ::
+
+        conda install -c ussl fluxpart
+
+    or:
+
+    ::
+
+        pip install fluxpart
+
+
 License
 =======
 
@@ -55,4 +77,3 @@ dioxide and water vapor fluxes. Agricultural and Forest Meteorology
 253--254:218--224,
 doi:`10.1016/j.agrformet.2018.02.019 <https://doi.org/10.1016/j.agrformet.2018.02.019>`_.
 
-:

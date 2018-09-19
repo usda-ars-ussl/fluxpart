@@ -43,3 +43,4 @@ docs/source/_background/
 .env
 .vscode
 tags
+.ipynb_checkpoints

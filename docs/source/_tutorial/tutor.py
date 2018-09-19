@@ -34,7 +34,7 @@ def tutor_fvsp():
 
 
 def tutor_plot():
-    # need to sync this pathname def with the one used in tutorfvsp
+    # must sync this pathname def with the one used in tutorfvsp
     results_file = "/media/results/apr-sept_2014.pkl"
     from fluxpart import fpread
     fvsp = fpread(results_file)

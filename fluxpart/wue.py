@@ -5,7 +5,10 @@ from .constants import MOLECULAR_WEIGHT as MW
 from .constants import SPECIFIC_GAS_CONSTANT as Rgas
 from .containers import WUE
 from .util import (
-    sat_vapor_press, vapor_press_deficit, vapor_press_deficit_mass)
+    sat_vapor_press,
+    vapor_press_deficit,
+    vapor_press_deficit_mass,
+)
 
 
 _C3_DEFAULTS = dict(
@@ -187,7 +190,7 @@ def water_use_efficiency(
     eps = MW.vapor / MW.dryair
     inter_h2o = hfs.rho_totair * eps * esat / (hfs.P - (1 - eps) * esat)
 
-    if ci_mod == 'opt':
+    if ci_mod == "opt":
         varq = hfs.var_vapor
         varc = hfs.var_co2
         wq = hfs.cov_w_q
@@ -199,7 +202,7 @@ def water_use_efficiency(
         if vpdm < 0:
             _bad_vpdm = "Negative vapor pressure deficit, {:.4} kg/m^3"
             raise WUEError(_bad_vpdm.format(vpdm))
-        m = - (varc * wq - pqc * sqrt(varq * varc) * wc)
+        m = -(varc * wq - pqc * sqrt(varq * varc) * wc)
         m /= varq * wc - pqc * sqrt(varq * varc) * wq
         if m < 0:
             raise WUEError("opt wue m arg = {:.4} < 0".format(m))

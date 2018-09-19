@@ -126,8 +126,8 @@ def test_hfdata_reader():
     assert_tob_read(data)
 
     datetime = _peektime([fname], **kws)[0]
-    assert (
-        datetime.round(freq="100ms") == pd.to_datetime("2017-08-03 00:00:00.1")
+    assert datetime.round(freq="100ms") == pd.to_datetime(
+        "2017-08-03 00:00:00.1"
     )
 
     reader = source.reader(interval="5s")
@@ -204,13 +204,11 @@ def assert_tob_read(data):
     npt.assert_allclose(data["q"].iloc[-1], 13.200139e-3)
     npt.assert_allclose(data["T"].iloc[-1], 23.015879 + 273.15)
     npt.assert_allclose(data["P"].iloc[-1], 85.0407e3)
-    assert (
-        data.dataframe.index[0].round(freq="100ms")
-        == pd.to_datetime("2017-08-03 00:00:00.1")
+    assert data.dataframe.index[0].round(freq="100ms") == pd.to_datetime(
+        "2017-08-03 00:00:00.1"
     )
-    assert (
-        data.dataframe.index[-1].round(freq="100ms")
-        == pd.to_datetime("2017-08-03 00:00:14.4")
+    assert data.dataframe.index[-1].round(freq="100ms") == pd.to_datetime(
+        "2017-08-03 00:00:14.4"
     )
 
 

@@ -33,7 +33,7 @@ EC_TOA5 = {
     "cols": (2, 3, 4, 5, 6, 7, 8),
     "temper_unit": "C",
     "unit_convert": dict(q=1e-3, c=1e-6, P=1e3),
-    "na_values": "NAN"
+    "na_values": "NAN",
 }
 
 EC_TOB1 = {
@@ -176,9 +176,7 @@ def fvspart(
             leaf_temper = _lookup(leaf_temper, 0, 1)
     if "daytime" in part_options:
         if isinstance(part_options["daytime"], str):
-            part_options["daytime"] = (
-                _lookup(part_options["daytime"], 0, 1, 2)
-            )
+            part_options["daytime"] = _lookup(part_options["daytime"], 0, 1, 2)
     if meas_wue:
         if isinstance(meas_wue, str):
             meas_wue = _lookup(meas_wue, 0, 1)
@@ -197,12 +195,12 @@ def fvspart(
             print("Time sorting data files ...")
         sorted_files = [f for t, f in sorted(zip(times, files))]
     if stdout:
-        print('Creating data source ...')
+        print("Creating data source ...")
 
     reader = HFDataSource(sorted_files, **hfd_format).reader(interval=interval)
     results = []
     if stdout:
-        print('Beginning partitioning analyses ...')
+        print("Beginning partitioning analyses ...")
 
     while True:
         try:
@@ -217,7 +215,7 @@ def fvspart(
         date = datetime.date()
         time = datetime.time()
         if stdout:
-            print('Processing {}'.format(datetime))
+            print("Processing {}".format(datetime))
 
         sunrise, sunset = None, None
         nighttime = False
@@ -304,7 +302,7 @@ def fvspart(
                     canopy_ht=canopy_ht,
                     meas_ht=meas_ht,
                     leaf_temper=leaf_t,
-                    **wue_options
+                    **wue_options,
                 )
 
         except WUEError as e:
@@ -441,8 +439,8 @@ class FVSResult(object):
         self.mssg = mssg
         self.fluxes = fluxes
         self.label = label
-        self.sunrise=sunrise
-        self.sunset=sunset
+        self.sunrise = sunrise
+        self.sunset = sunset
         self.fvsp_solution = fvsp_solution
         self.wue = wue
         self.hfsummary = hfsummary
@@ -473,7 +471,7 @@ class FVSResult(object):
 class FluxpartResult(object):
     def __init__(self, fp_results):
         if isinstance(fp_results, str):
-            with open(fp_results, 'rb') as f:
+            with open(fp_results, "rb") as f:
                 self.df = pd.read_pickle(f)
                 self.meta = pickle.load(f)
             return
@@ -513,13 +511,12 @@ class FluxpartResult(object):
             [df0, df1, df2, df3, df4],
             axis=1,
             sort=False,
-            keys=[
-                "fluxes", "hfsummary", "wue", "fvsp_solution", "fluxpart"],
+            keys=["fluxes", "hfsummary", "wue", "fvsp_solution", "fluxpart"],
         )
 
         self.meta = {
             "version": fp_results[0].version,
-            "date": str(pydatetime.datetime.now())
+            "date": str(pydatetime.datetime.now()),
         }
 
     def __str__(self):
@@ -535,13 +532,13 @@ class FluxpartResult(object):
         return getattr(self.df, x)
 
     def plot_co2(
-            self,
-            start=None,
-            end=None,
-            units='mass',
-            components=(0, 1, 2),
-            ax=None,
-            **kws
+        self,
+        start=None,
+        end=None,
+        units="mass",
+        components=(0, 1, 2),
+        ax=None,
+        **kws,
     ):
         if ax is None:
             ax = plt.gca()
@@ -552,7 +549,10 @@ class FluxpartResult(object):
             cols = ["Fc_mol", "Fcp_mol", "Fcr_mol"]
             ylab = r"$\mathrm{CO_2\ Flux\ (umol\ m^{-2}\ s^{-1})}$"
         labels = [
-            r"$\mathrm{F_c}$", r"$\mathrm{F_{c_p}}$", r"$\mathrm{F_{c_r}}$"]
+            r"$\mathrm{F_c}$",
+            r"$\mathrm{F_{c_p}}$",
+            r"$\mathrm{F_{c_r}}$",
+        ]
         cols = [cols[j] for j in components]
         labels = [labels[j] for j in components]
         self.df.loc[start:end, ("fluxes", cols)].plot(ax=ax)
@@ -561,13 +561,13 @@ class FluxpartResult(object):
         return ax
 
     def plot_h2o(
-            self,
-            start=None,
-            end=None,
-            units='mass',
-            components=(0, 1, 2),
-            ax=None,
-            **kws
+        self,
+        start=None,
+        end=None,
+        units="mass",
+        components=(0, 1, 2),
+        ax=None,
+        **kws,
     ):
         if ax is None:
             ax = plt.gca()
@@ -597,8 +597,8 @@ class FluxpartResult(object):
     def istr(self, i):
         """Return a string representation of the ith result"""
         return _fp_result_str.format(
-            version=self.meta['version'],
-            date=self.meta['date'],
+            version=self.meta["version"],
+            date=self.meta["date"],
             label=self.df.index[i],
             **self.df.iloc[i]["fluxpart"].to_dict(),
             **self.df.iloc[i]["fluxes"].to_dict(),
@@ -608,7 +608,7 @@ class FluxpartResult(object):
         )
 
     def save(self, filename):
-        with open(filename, 'wb') as f:
+        with open(filename, "wb") as f:
             self.df.to_pickle(f)
             pickle.dump(self.meta, f)
 
@@ -646,7 +646,7 @@ def _peektime(files, **kwargs):
             sep = kwargs["sep"]
         datetimes = []
         for file_ in files:
-            with open(file_, 'rt') as f:
+            with open(file_, "rt") as f:
                 for _ in range(kwargs["skiprows"]):
                     f.readline()
                 tstamp = f.readline().split(sep)[tcol].strip("'\"")
@@ -666,7 +666,7 @@ def _validate_hfd_format(hfd_format):
         raise Error(f"Unrecognized filetype: {hfd_format['filetype']}")
 
 
-def _lookup(csv_file, date_icol, icol1, icol2=None, method='ffill'):
+def _lookup(csv_file, date_icol, icol1, icol2=None, method="ffill"):
     """Create a function for looking up data in csv file.
     date_icol, icol1, icol2 : int
         column index for the respective data
@@ -685,4 +685,5 @@ def _lookup(csv_file, date_icol, icol1, icol2=None, method='ffill'):
             return df.iloc[ix, icol1 - 1]
         else:
             return df.iloc[ix, icol1 - 1], df.iloc[ix, icol2 - 1]
+
     return func

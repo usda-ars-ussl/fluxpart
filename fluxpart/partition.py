@@ -67,7 +67,6 @@ def fvspart_progressive(w, q, c, wue, adjust_fluxes=True):
             else:
                 mssg_for_unfiltered_data = fvsp.rootsoln.root_mssg
 
-
         if fvsp.rootsoln.valid_root:
             if adjust_fluxes:
                 fluxes = _adjust_fluxes(fluxes, wue, wq_tot, wc_tot)

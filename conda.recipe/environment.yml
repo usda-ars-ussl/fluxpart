@@ -1,12 +1,10 @@
-name: fp020b
+name: fp02
 channels:
   - defaults
-  - thskaggs
+  - ussl
 dependencies:
   - python=3.7.*
-  - fluxpart=0.2.0b
-  - ipython=6.5.*
-  - jupyter=1.0.*
+  - fluxpart=0.2.*
   - matplotlib=2.2.*
   - numpy=1.15.*
   - pandas=0.23.*

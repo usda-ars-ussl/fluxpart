@@ -26,7 +26,7 @@ setup(
     author_email="todd.skaggs@ars.usda.gov",
     license="Public Domain CC0",
     classifiers=[
-        "Development Status :: 4 - Beta",
+        "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Science/Research",
         "Topic :: Scientific/Engineering",
         "License :: CC0 1.0 Universal (CC0 1.0) Public Domain Dedication",
@@ -34,7 +34,7 @@ setup(
         "Programming Language :: Python :: 3.7",
     ],
     packages=["fluxpart"],
-    install_requires=["numpy", "matplotlib", "pandas", "pywavelets"],
+    install_requires=["numpy", "matplotlib", "pandas", "pywavelets", "attrs"],
     zip_safe=False,
     tests_require=["numpy", "pandas"],
     test_suite="tests",

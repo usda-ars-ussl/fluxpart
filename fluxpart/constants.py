@@ -19,7 +19,7 @@ class SpecificGasConstant(
     Attributes
     ----------
     dryair, vapor, co2 : float
-        J/K/mol == m^3 Pa/kg/K
+        J/K/kg
     """
 
 

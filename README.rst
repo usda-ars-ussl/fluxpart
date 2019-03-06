@@ -42,21 +42,24 @@ Features
 Install
 =======
 
-Recommended:
+**Update March 5, 2019:** The previously recommended installation method, using an environment.yml file hosted on Anaconda Cloud, has proven unreliable. 
+Apologies if this caused a problem.
 
-    conda install anaconda-client
-    conda env create ussl/fp02
+To install and create a conda fluxpart environment, do this instead. Open this link,
+
+`environment.yml <https://raw.githubusercontent.com/usda-ars-ussl/fluxpart/master/conda.recipe/environment.yml>`_
+
+and right click on the page. Select "save as" and name the saved file `environment.yml`.
+Navigate to the directory where you saved `environment.yml`, and execute::
+
+    conda env create -f environment.yml
     conda activate fp02
 
-Alternatively:
-
-    ::
+Alternatively, if you don't want the full environment::
 
         conda install -c ussl fluxpart
 
     or:
-
-    ::
 
         pip install fluxpart
 

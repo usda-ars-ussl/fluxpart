@@ -1,0 +1,10 @@
+Model:	LI-7500RS Open Path CO2/H2O Analyzer
+SN:	75H-2802
+Instrument:	AIU-1643
+File Type:	2
+Software Version:	8.0.0
+Timestamp:	11:30:00
+Timezone:	US/Central
+DATAH	Seconds	Nanoseconds	Diagnostic Value	Diagnostic Value 2	Date	Time	CO2 (mmol/m^3)	H2O (mmol/m^3)	Temperature (C)	Pressure (kPa)	Aux 1 - U (m/s)	Aux 2 - V (m/s)	Aux 3 - W (m/s)	Aux 4 - SOS (m/s)	CO2 Signal Strength	HIT Power (W)	Vin HIT (V)	CHK
+DATA	1501691400	0	254	1	2017-08-02	11:30:00:000	15.1805	817.852	27.6979	96.9071	0.752103	-0.591885	0.199506	346.769	95.8019	-1	0	 31
+DATA	1501691400	100000000	254	1	2017-08-02	11:30:00:100	15.1822	817.922	27.6979	96.9071	0.781697	-0.542902	0.195424	346.721	95.8019	-1	0	147

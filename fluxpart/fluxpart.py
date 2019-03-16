@@ -638,19 +638,23 @@ def _files(file_or_dir):
 
 def _peektime(files, **kwargs):
     if kwargs["filetype"] == "csv":
-        tcol = kwargs["time_col"]
+        dtcols = kwargs["time_col"]
+        if type(dtcols) is int:
+            dtcols = [dtcols]
         sep = ","
         if "delimiter" in kwargs:
             sep = kwargs["delimiter"]
         if "sep" in kwargs:
             sep = kwargs["sep"]
         datetimes = []
+        to_datetime_kws = kwargs.get("to_datetime_kws", {})
         for file_ in files:
             with open(file_, "rt") as f:
                 for _ in range(kwargs["skiprows"]):
                     f.readline()
-                tstamp = f.readline().split(sep)[tcol].strip("'\"")
-                datetimes.append(pd.to_datetime(tstamp))
+                row = f.readline().split(sep)
+                tstamp = " ".join([row[i].strip("'\"") for i in dtcols])
+                datetimes.append(pd.to_datetime(tstamp, **to_datetime_kws))
     else:  # "tob1"
         source = HFDataSource(files, count=5, **kwargs)
         datetimes = [df.index[0] for df in source.reader(interval=None)]

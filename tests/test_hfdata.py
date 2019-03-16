@@ -137,6 +137,21 @@ def test_hfdata_reader():
     for cnt, df in enumerate(reader):
         assert_1min_tobchunk_read(cnt, df)
 
+    # ghg tab delimited data file
+    fname = os.path.join(DATADIR, "head_ghg.data")
+    kws = {
+            'filetype': 'csv',
+            'sep': '\t',
+            'cols': (11, 12, 13, 7, 8, 9, 10),
+            'time_col': [5, 6],
+            'skiprows': 8,
+            'na_values': 'NAN',
+            'to_datetime_kws': {"format": "%Y-%m-%d %H:%M:%S:%f"}
+    }
+    source = HFDataSource(files=[fname], **kws)
+    data = HFData(next(source.reader(interval=None)))
+    assert_ghg_read(data)
+
 
 def assert_1300_read(data):
     npt.assert_allclose(data["u"].iloc[0], 0.468)
@@ -209,6 +224,29 @@ def assert_tob_read(data):
     )
     assert data.dataframe.index[-1].round(freq="100ms") == pd.to_datetime(
         "2017-08-03 00:00:14.4"
+    )
+
+
+def assert_ghg_read(data):
+    npt.assert_allclose(data["u"].iloc[0], 0.752103)
+    npt.assert_allclose(data["v"].iloc[0], -0.591885)
+    npt.assert_allclose(data["w"].iloc[0], 0.199506)
+    npt.assert_allclose(data["c"].iloc[0], 15.1805)
+    npt.assert_allclose(data["q"].iloc[0], 817.852)
+    npt.assert_allclose(data["T"].iloc[0], 27.6979)
+    npt.assert_allclose(data["P"].iloc[0], 96.9071)
+    npt.assert_allclose(data["u"].iloc[-1], 0.781697)
+    npt.assert_allclose(data["v"].iloc[-1], -0.542902)
+    npt.assert_allclose(data["w"].iloc[-1], 0.195424)
+    npt.assert_allclose(data["c"].iloc[-1], 15.1822)
+    npt.assert_allclose(data["q"].iloc[-1], 817.922)
+    npt.assert_allclose(data["T"].iloc[-1], 27.6979)
+    npt.assert_allclose(data["P"].iloc[-1], 96.9071)
+    assert data.dataframe.index[0].round(freq="100ms") == pd.to_datetime(
+        "2017-08-02 11:30:00"
+    )
+    assert data.dataframe.index[-1].round(freq="100ms") == pd.to_datetime(
+        "2017-08-02 11:30:00.1"
     )
 
 

@@ -256,6 +256,7 @@ class HFDataSource(object):
         self._time_col = time_col
         self._flags = flags
         self._csv_kws = kwargs
+        self._dt_kws = self._csv_kws.pop("to_datetime_kws", {})
 
     @property
     def _names(self):
@@ -267,8 +268,12 @@ class HFDataSource(object):
         namecols = dict(zip(VAR_NAMES, self._cols))
         flags = {"flag-" + str(col): col for col, val in self._flags}
         namecols.update(flags)
-        if isinstance(self._time_col, int) and self._filetype == "csv":
-            namecols["Datetime"] = self._time_col
+        if self._filetype == "csv" and self._time_col is not None:
+            try:
+                namecols["Date"] = self._time_col[0]
+                namecols["Time"] = self._time_col[1]
+            except TypeError:
+                namecols["Datetime"] = self._time_col
         return namecols
 
     def reader(self, interval, **kwargs):
@@ -325,7 +330,15 @@ class HFDataSource(object):
         df.columns = self._names
         if self._time_col is None:
             return df
-        df["Datetime"] = pd.to_datetime(df.loc[:, "Datetime"])
+        try:
+            df["Datetime"] = pd.to_datetime(
+                df.loc[:, "Datetime"], **self._dt_kws
+            )
+        except KeyError:
+            df["Datetime"] = pd.to_datetime(
+                df.loc[:, "Date"] + " " + df.loc[:, "Time"], **self._dt_kws
+            )
+            df = df.drop(["Date", "Time"], axis=1)
         return df.set_index("Datetime")
 
     def _set_indices_tob1(self, df):

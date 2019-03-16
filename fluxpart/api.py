@@ -114,7 +114,9 @@ def fvs_partition(
         7-tuple of integers indicating the data column numbers that
         contain series data for (u, v, w, c, q, T, P), in that order.
         Uses 0-based indexing.
-    hfd_format["time_col"] : int,
+    hfd_format["time_col"] : int or [int, int]
+        The column index for the datetime column, or if a list, the
+        indices for the date and time columns.
 
     hfd_format["unit_convert"] : dict
         Dictionary of multiplication factors required to convert any u,
@@ -134,6 +136,10 @@ def fvs_partition(
         col is an int specifying the column number containing the flag
         (0-based indexing), and goodval is the value of the flag that
         indicates a good data record.
+    hfd_format["to_datetime_kws"] : dict
+        Dict of keyword arguments passed to pandas.to_datetime_ to
+        read datafile dates and time. Generally needed only if a
+        nonstandard format is used in the datafile.
     hfd_format[ other keys ]
         when `hfd_format["filetype"]` is "csv", all other key:value
         pairs in `hfd_format` are passed as keyword arguments to
@@ -267,6 +273,9 @@ def fvs_partition(
 
     .. _alias:
         http://pandas.pydata.org/pandas-docs/stable/timeseries.html#offset-aliases
+
+    .. _pandas.to_datetime:
+        https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.to_datetime.html
 
     """
     return fvspart(

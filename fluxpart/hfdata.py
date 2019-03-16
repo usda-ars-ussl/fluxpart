@@ -205,9 +205,9 @@ class HFDataSource(object):
     ----------
     files : list or sequence of files
         Sorted sequence of data files
-    filetype : {'csv', 'tob1'}
+    filetype : {'csv', 'tob1', 'ghg'}
         'csv' = delimited text file; 'tob1' = Campbell Scientific binary
-        format file.
+        format file; 'ghg' = LI-COR raw data format 
     cols : 7*(int,)
         Column indices for (u, v, w, q, c, T, P) data, in that order.
         0-based indexing.
@@ -218,15 +218,15 @@ class HFDataSource(object):
         ``converters={'P': lambda arg: 1e3 * arg}``. If all data are
         SI units, set `converters` to None (default).
     time_col : int, optional
-        Datetime column for `csv` filetype. Default is None.
+        Datetime column for `csv` and `ghg` filetype. Default is None.
     flags : 2-tuple or list of 2-tuples, optional
         Indicate that one or more data columns are used to flag bad data
         records. Each tuple is of the form (col, goodval), where col is
         an int specifying the column number (0-based indexing), and
         goodval is the flag value indicating a good data record.
     **kwargs
-        Passed to pandas.read_csv_ when filetype is csv. Should not
-        include `usecols` or `header` keywords.
+        Passed to pandas.read_csv_ when filetype is csv or ghg. Should
+        not include `usecols` or `header` keywords.
 
 
     .. _pandas.read_csv:
@@ -268,7 +268,7 @@ class HFDataSource(object):
         namecols = dict(zip(VAR_NAMES, self._cols))
         flags = {"flag-" + str(col): col for col, val in self._flags}
         namecols.update(flags)
-        if self._filetype == "csv" and self._time_col is not None:
+        if self._filetype in ("csv", "ghg") and self._time_col is not None:
             try:
                 namecols["Date"] = self._time_col[0]
                 namecols["Time"] = self._time_col[1]
@@ -291,13 +291,13 @@ class HFDataSource(object):
             iteration. If set to None, dataframes corresponding to whole
             individual data files are returned with each iteration.
         **kwargs
-            For csv filetype, kwargs are passed to pandas.read_csv_.
-            Can be used to override or add to formatting specified in
-            the initializer. Should not include `usecols`  or `header`
-            keywords. For tob1 filetype, kwargs is passed to
-            numpy.fromfile_. In this case, the only allowable kwarg is
-            'count', which can be used to limit the number of lines
-            read.
+            For csv and ghg filetypes, kwargs are passed to
+            pandas.read_csv_.  Can be used to override or add to
+            formatting specified in the initializer. Should not include
+            `usecols`  or `header` keywords. For tob1 filetype, kwargs
+            is passed to numpy.fromfile_. In this case, the only
+            allowable kwarg is 'count', which can be used to limit the
+            number of lines read.
 
 
         .. _numpy.fromfile:
@@ -311,11 +311,14 @@ class HFDataSource(object):
 
         """
 
-        if self._filetype == "csv":
+        if self._filetype in ("csv", "ghg"):
             kws = {**self._csv_kws, **kwargs}
             kws["usecols"] = self._usecols
             kws["header"] = None
-            dfs = util.multifile_read_csv(self._files, **kws)
+            if self._filetype == "csv":
+                dfs = util.multifile_read_csv(self._files, **kws)
+            else:
+                dfs = util.multifile_read_ghg(self._files, **kws)
             indx_dfs = (self._set_indices_csv(df) for df in dfs)
         else:  # "tob1"
             count = kwargs.get("count", -1)

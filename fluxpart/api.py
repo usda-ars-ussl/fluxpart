@@ -107,9 +107,10 @@ def fvs_partition(
         "filetype" "cols", and "time_col" (detailed below).
         "unit_convert" and "temper_unit" are also required if data are
         not in SI units.
-    hfd_format["filetype"] : {"csv", "tob1", "pd.df"}
+    hfd_format["filetype"] : {"csv", "tob1", "ghg", "pd.df"}
         "csv" = delimited text file; "tob1" = Campbell Scientific binary
-        data table format; "pd.df" = pandas dataframe.
+        data table format; "ghg" = LI-COR raw data format; "pd.df" =
+        pandas dataframe.
     hfd_format["cols"] : 7*(int,)
         7-tuple of integers indicating the data column numbers that
         contain series data for (u, v, w, c, q, T, P), in that order.
@@ -141,14 +142,15 @@ def fvs_partition(
         read datafile dates and time. Generally needed only if a
         nonstandard format is used in the datafile.
     hfd_format[ other keys ]
-        when `hfd_format["filetype"]` is "csv", all other key:value
-        pairs in `hfd_format` are passed as keyword arguments to
-        pandas.read_csv_. Those keywords may be required to specify the
-        details of the file formatting. Among the most commonly required
-        are: "sep", the str that is used to separate values or define
-        column widths (default is sep=","); and "skiprows", which will
-        be needed if the file contains header rows. See pandas.read_csv_
-        for a full description of available format options.
+        when `hfd_format["filetype"]` is "csv" or "ghg", all other
+        key:value pairs in `hfd_format` are passed as keyword arguments
+        to pandas.read_csv_. Those keywords may be required to specify
+        the details of the file formatting. Among the most commonly
+        required are: "sep", the str that is used to separate values or
+        define column widths (default is sep=","); and "skiprows", which
+        will be needed if the file contains header rows. See
+        pandas.read_csv_ for a full description of available format
+        options.
 
     hfd_options: dict
         Options for pre-processing high frequency data.
@@ -244,9 +246,9 @@ def fvs_partition(
 
     NOTES
     -----
-    Two pre-defined hfd_formats are available, "ec.TOA5" and "ec.TOB1".
+    Three pre-defined hfd_formats are available.
 
-    "ec-TOA5"::
+    "EC-TOA5"::
 
         hfd_format = {
             "filetype": "csv",
@@ -258,13 +260,27 @@ def fvs_partition(
             "na_values": "NAN",
         }
 
-    "ec-TOB1"::
+    "EC-TOB1"::
 
         hfd_format = {
             "filetype": "tob1",
             "cols": (3, 4, 5, 6, 7, 8, 9),
             "temper_unit": "C",
             "unit_convert": {"q": 1e-3, "c": 1e-6, "P": 1e3},
+        }
+
+    "EC-GHG1"::
+
+        hfd_format = {
+            "filetype": "ghg",
+            "sep": "\t",
+            "cols": (11, 12, 13, 7, 8, 9, 10),
+            "time_col": [5, 6],
+            "unit_convert": dict(q=1e-3 * MW.vapor, c=1e-3 * MW.co2, P=1e3),
+            "temper_unit": "C",
+            "skiprows": 8,
+            "na_values": "NAN",
+            "to_datetime_kws": {"format": "%Y-%m-%d %H:%M:%S:%f"},
         }
 
 

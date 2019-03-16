@@ -4,6 +4,7 @@ from functools import lru_cache
 from glob import iglob
 import os
 import pickle
+import zipfile
 
 import attr
 
@@ -24,6 +25,7 @@ from .hfdata import (
 from .partition import fvspart_progressive, FVSPSolution
 from .util import vapor_press_deficit
 from .containers import AllFluxes, WUE
+from .constants import MOLECULAR_WEIGHT as MW
 
 
 EC_TOA5 = {
@@ -42,6 +44,18 @@ EC_TOB1 = {
     "cols": (3, 4, 5, 6, 7, 8, 9),
     "temper_unit": "C",
     "unit_convert": dict(q=1e-3, c=1e-6, P=1e3),
+}
+
+EC_GHG1 = {
+    "filetype": "ghg",
+    "sep": "\t",
+    "cols": (11, 12, 13, 7, 8, 9, 10),
+    "time_col": [5, 6],
+    "unit_convert": dict(q=1e-3 * MW.vapor, c=1e-3 * MW.co2, P=1e3),
+    "temper_unit": "C",
+    "skiprows": 8,
+    "na_values": "NAN",
+    "to_datetime_kws": {"format": "%Y-%m-%d %H:%M:%S:%f"},
 }
 
 HFD_FORMAT = EC_TOA5
@@ -147,6 +161,8 @@ def fvspart(
         hfd_format = deepcopy(EC_TOA5)
     elif type(hfd_format) is str and hfd_format.upper() == "EC-TOB1":
         hfd_format = deepcopy(EC_TOB1)
+    elif type(hfd_format) is str and hfd_format.upper() == "EC-GHG1":
+        hfd_format = deepcopy(EC_GHG1)
     else:
         hfd_format = deepcopy(hfd_format)
         _validate_hfd_format(hfd_format)
@@ -637,7 +653,7 @@ def _files(file_or_dir):
 
 
 def _peektime(files, **kwargs):
-    if kwargs["filetype"] == "csv":
+    if kwargs["filetype"] == "csv" or kwargs["filetype"] == "ghg":
         dtcols = kwargs["time_col"]
         if type(dtcols) is int:
             dtcols = [dtcols]
@@ -648,6 +664,7 @@ def _peektime(files, **kwargs):
             sep = kwargs["sep"]
         datetimes = []
         to_datetime_kws = kwargs.get("to_datetime_kws", {})
+    if kwargs["filetype"] == "csv":
         for file_ in files:
             with open(file_, "rt") as f:
                 for _ in range(kwargs["skiprows"]):
@@ -655,6 +672,15 @@ def _peektime(files, **kwargs):
                 row = f.readline().split(sep)
                 tstamp = " ".join([row[i].strip("'\"") for i in dtcols])
                 datetimes.append(pd.to_datetime(tstamp, **to_datetime_kws))
+    elif kwargs["filetype"] == "ghg":
+        for file_ in files:
+            with zipfile.ZipFile(file_) as z:
+                with z.open(file_[:-3] + "data", "r") as f:
+                    for _ in range(kwargs["skiprows"]):
+                        f.readline()
+                    row = f.readline().decode("utf-8").split(sep)
+                    tstamp = " ".join([row[i].strip("'\"") for i in dtcols])
+                    datetimes.append(pd.to_datetime(tstamp, **to_datetime_kws))
     else:  # "tob1"
         source = HFDataSource(files, count=5, **kwargs)
         datetimes = [df.index[0] for df in source.reader(interval=None)]
@@ -666,7 +692,7 @@ def _validate_hfd_format(hfd_format):
         raise Error("No value for hfd_format['cols'] given.")
     if "filetype" not in hfd_format:
         raise Error("No value for hfd_format['filetype'] given.")
-    if hfd_format["filetype"] not in ("csv", "tob1"):
+    if hfd_format["filetype"] not in ("csv", "tob1", "ghg"):
         raise Error(f"Unrecognized filetype: {hfd_format['filetype']}")
 
 

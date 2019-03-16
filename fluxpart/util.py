@@ -143,7 +143,7 @@ def sat_vapor_press(t_kelvin):
     # e_sat
     tr = 1 - 373.15 / t_kelvin
     arg = 13.3185 * tr - 1.9760 * tr ** 2 - 0.6445 * tr ** 3 - 0.1299 * tr ** 4
-    return 101325. * exp(arg)
+    return 101325.0 * exp(arg)
 
 
 def vapor_press_deficit(rho_vapor, t_kelvin):
@@ -160,11 +160,11 @@ def qflux_mass_to_heat(massflux, Tk):  # kg/m^2/s, K
 
 
 def cflux_mass_to_mol(massflux):  # kg/m^2/s
-    return 1. / MW.co2 * massflux  # mol/m^2/s
+    return 1.0 / MW.co2 * massflux  # mol/m^2/s
 
 
 def qflux_mass_to_mol(massflux):  # kg/m^2/s
-    return 1. / MW.vapor * massflux  # mol/m^2/s
+    return 1.0 / MW.vapor * massflux  # mol/m^2/s
 
 
 def progressive_lowcut_series(series):

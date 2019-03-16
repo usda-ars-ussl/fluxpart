@@ -12,13 +12,13 @@ from .util import (
 
 
 _C3_DEFAULTS = dict(
-    const_ppm=280.,  # ppm
+    const_ppm=280.0,  # ppm
     const_ratio=0.7,
     linear=(1, 1.6e-4),
     sqrt=22e-9,  # kg-co2 / m^3 / Pa
 )
 
-_C4_DEFAULTS = dict(const_ppm=130., const_ratio=0.44, linear=(1, 2.7e-4))
+_C4_DEFAULTS = dict(const_ppm=130.0, const_ratio=0.44, linear=(1, 2.7e-4))
 
 CI_DEFAULT_PARAMS = dict(C3=_C3_DEFAULTS, C4=_C4_DEFAULTS)
 
@@ -169,13 +169,13 @@ def water_use_efficiency(
     zeta = (meas_ht - d0) / obukhov_len
     # Unstable
     if zeta < -0.04:
-        psi_v = 2. * log((1 + (1 - 16. * zeta) ** 0.5) / 2)
+        psi_v = 2.0 * log((1 + (1 - 16.0 * zeta) ** 0.5) / 2)
     # Neutral
     elif zeta <= 0.04:
-        psi_v = 0.
+        psi_v = 0.0
     # Stable
     else:
-        psi_v = -5. * zeta
+        psi_v = -5.0 * zeta
 
     # Ambient concentrations (kg/m^3)
     arg = (log((meas_ht - d0) / zv) - psi_v) / VON_KARMAN / hfs.ustar
@@ -251,7 +251,7 @@ def water_use_efficiency(
     }
     inter_co2 = ci_dispatch[ci_mod_name](ci_mod_params)
 
-    coef = 1. / diff_ratio
+    coef = 1.0 / diff_ratio
     wue = coef * (ambient_co2 - inter_co2) / (ambient_h2o - inter_h2o)
 
     if ambient_co2 <= inter_co2:

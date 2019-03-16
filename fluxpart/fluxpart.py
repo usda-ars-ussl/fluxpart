@@ -143,9 +143,9 @@ def fvspart(
     """
     if hfd_format is None:
         hfd_format = deepcopy(HFD_FORMAT)
-    elif isinstance(hfd_format, str) and hfd_format.upper() == "EC-TOA5":
+    elif type(hfd_format) is str and hfd_format.upper() == "EC-TOA5":
         hfd_format = deepcopy(EC_TOA5)
-    elif isinstance(hfd_format, str) and hfd_format.upper() == "EC-TOB1":
+    elif type(hfd_format) is str and hfd_format.upper() == "EC-TOB1":
         hfd_format = deepcopy(EC_TOB1)
     else:
         hfd_format = deepcopy(hfd_format)
@@ -156,10 +156,10 @@ def fvspart(
     part_options = {**PART_OPTIONS, **(part_options or {})}
 
     unit_convert = hfd_format.pop("unit_convert", {})
-    converters = {k: _converter_func(v, 0.) for k, v in unit_convert.items()}
+    converters = {k: _converter_func(v, 0.0) for k, v in unit_convert.items()}
     temper_unit = hfd_format.pop("temper_unit").upper()
     if temper_unit == "C" or temper_unit == "CELSIUS":
-        converters["T"] = _converter_func(1., 273.15)
+        converters["T"] = _converter_func(1.0, 273.15)
     hfd_format["converters"] = converters
 
     # TODO: these should work with file objects, not just str name
@@ -172,13 +172,13 @@ def fvspart(
             heights = _lookup(heights, 0, 1, 2)
     if "leaf_temper" in wue_options:
         leaf_temper = wue_options.pop("leaf_temper")
-        if isinstance(leaf_temper, str):
+        if type(leaf_temper) is str:
             leaf_temper = _lookup(leaf_temper, 0, 1)
     if "daytime" in part_options:
-        if isinstance(part_options["daytime"], str):
+        if type(part_options["daytime"]) is str:
             part_options["daytime"] = _lookup(part_options["daytime"], 0, 1, 2)
     if meas_wue:
-        if isinstance(meas_wue, str):
+        if type(meas_wue) is str:
             meas_wue = _lookup(meas_wue, 0, 1)
 
     if stdout:
@@ -358,10 +358,10 @@ def fvspart(
 def _set_all_fluxes_nonstomatal(hfsum):
     return dict(
         Fq=hfsum.cov_w_q,
-        Fqt=0.,
+        Fqt=0.0,
         Fqe=hfsum.cov_w_q,
         Fc=hfsum.cov_w_c,
-        Fcp=0.,
+        Fcp=0.0,
         Fcr=hfsum.cov_w_c,
     )
 
@@ -470,7 +470,7 @@ class FVSResult(object):
 
 class FluxpartResult(object):
     def __init__(self, fp_results):
-        if isinstance(fp_results, str):
+        if type(fp_results) is str:
             with open(fp_results, "rb") as f:
                 self.df = pd.read_pickle(f)
                 self.meta = pickle.load(f)
@@ -623,7 +623,7 @@ def _converter_func(slope, intercept):
 
 
 def _files(file_or_dir):
-    if isinstance(file_or_dir, str):
+    if type(file_or_dir) is str:
         file_or_dir = [file_or_dir]
     unsorted_files = []
     for path in file_or_dir:

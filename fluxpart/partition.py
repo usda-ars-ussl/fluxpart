@@ -189,76 +189,54 @@ def findroot(wqc_data, wue):
         :class:`~fluxpart.containers.RootSoln`
 
     """
-    # scale dimensional parameters so they have comparable magnitudes
-    # H20: kg - > g
-    # CO2: kg - > mg
-
-    var_q = wqc_data.var_q * 1e6
-    var_c = wqc_data.var_c * 1e12
-    wq = wqc_data.wq * 1e3
-    wc = wqc_data.wc * 1e6
-    corr_qc = wqc_data.corr_qc
-    wue = wue * 1e3
-
-    sd_q, sd_c = math.sqrt(var_q), math.sqrt(var_c)
-
-    numer = -2 * corr_qc * sd_c * sd_q * wq * wc
-    numer += var_c * wq ** 2 + var_q * wc ** 2
-    numer *= -(corr_qc ** 2 - 1) * var_c * var_q * wue ** 2
-    denom = -corr_qc * sd_c * sd_q * (wc + wq * wue)
-    denom += var_c * wq + var_q * wc * wue
-    denom = denom ** 2
-
-    var_cp = numer / denom
-
-    numer = -(corr_qc ** 2 - 1) * var_c * var_q * (wc - wq * wue) ** 2
-    denom = -2 * corr_qc * sd_c * sd_q * wc * wq
-    denom += var_c * wq ** 2 + var_q * wc ** 2
-    denom *= -2 * corr_qc * sd_c * sd_q * wue + var_c + var_q * wue ** 2
-
-    rho_sq = numer / denom
-    corr_cp_cr = -math.sqrt(rho_sq)
-
-    valid_root, valid_mssg = _isvalid_root(corr_cp_cr, var_cp)
-
     co2soln_id = None
-    sig_cr = np.nan
-    if valid_root:
-        valid_root = False
-        valid_mssg = "Trial root failed"
-        scaled_wqc_data = WQCData(
-            wq=wq, wc=wc, var_q=var_q, var_c=var_c, corr_qc=corr_qc
+    sig_cr, var_cp, corr_cp_cr = np.nan, np.nan, np.nan
+    valid_root = False
+    valid_mssg = "Series data and WUE value incompatible with FVS"
+
+    var_q, var_c = wqc_data.var_q, wqc_data.var_c
+    sd_q, sd_c = math.sqrt(var_q), math.sqrt(var_c)
+    wq, wc = wqc_data.wq, wqc_data.wc
+    corr_qc = wqc_data.corr_qc
+
+    wcwq = wc / wq
+    scsq = sd_c / sd_q
+    if corr_qc > 0 and ((wue < wcwq < 0) or (0 < wcwq < scsq * corr_qc)):
+        co2soln_id = 0 # minus root
+    if corr_qc < 0:
+        if wcwq * corr_qc < scsq < wcwq / corr_qc:
+            co2soln_id = 1 if scsq <= corr_qc * wue else 0
+
+    if co2soln_id in (0, 1):
+        valid_root = True
+        valid_mssg = ""
+
+        numer = -2 * corr_qc * sd_c * sd_q * wq * wc
+        numer += var_c * wq ** 2 + var_q * wc ** 2
+        numer *= -(corr_qc ** 2 - 1) * var_c * var_q * wue ** 2
+        denom = -corr_qc * sd_c * sd_q * (wc + wq * wue)
+        denom += var_c * wq + var_q * wc * wue
+        denom = denom ** 2
+
+        var_cp = numer / denom
+
+        numer = -(corr_qc ** 2 - 1) * var_c * var_q * (wc - wq * wue) ** 2
+        denom = -2 * corr_qc * sd_c * sd_q * wc * wq
+        denom += var_c * wq ** 2 + var_q * wc ** 2
+        denom *= -2 * corr_qc * sd_c * sd_q * wue + var_c + var_q * wue ** 2
+
+        rho_sq = numer / denom
+        corr_cp_cr = -math.sqrt(rho_sq)
+
+        wcr_ov_wcp = flux_ratio(
+            var_cp, corr_cp_cr, wqc_data, "co2", co2soln_id
         )
+        sig_cr = wcr_ov_wcp * math.sqrt(var_cp) / corr_cp_cr
 
-        tol = 1e-12
-        r0 = _residual_func((corr_cp_cr, var_cp), scaled_wqc_data, wue, 0)
-        r1 = _residual_func((corr_cp_cr, var_cp), scaled_wqc_data, wue, 1)
-
-        if abs(r0[0]) < tol and abs(r0[1]) < tol:
-            co2soln_id = 0
-            valid_root = True
-            valid_mssg = ""
-        if abs(r1[0]) < tol and abs(r1[1]) < tol:
-            assert not co2soln_id
-            co2soln_id = 1
-            valid_root = True
-            valid_mssg = ""
-
-        if valid_root:
-            wqc_data = SimpleNamespace(
-                var_q=var_q, var_c=var_c, wq=wq, wc=wc, corr_qc=corr_qc
-            )
-
-            wcr_ov_wcp = flux_ratio(
-                var_cp, corr_cp_cr, wqc_data, "co2", co2soln_id
-            )
-            sig_cr = wcr_ov_wcp * math.sqrt(var_cp) / corr_cp_cr
-
-    # re-scale dimensional variables to SI units
     return RootSoln(
         corr_cp_cr=corr_cp_cr,
-        var_cp=var_cp * 1e-12,
-        sig_cr=sig_cr * 1e-6,
+        var_cp=var_cp,
+        sig_cr=sig_cr,
         co2soln_id=co2soln_id,
         valid_root=valid_root,
         root_mssg=valid_mssg,
@@ -324,53 +302,16 @@ def _mass_fluxes(var_cp, corr_cp_cr, wqc_data, wue, co2soln_id):
     )
 
 
-def _residual_func(x, wqc_data, wue, co2soln_id):
-    """Residual function used with root finding routine.
-
-    The two components of the residual are Eqs. 7a and 7b of [SAAS+18]_.
-
-    """
-    corr_cp_cr, var_cp = x
-    wcr_ov_wcp = flux_ratio(var_cp, corr_cp_cr, wqc_data, "co2", co2soln_id)
-    wqe_ov_wqt = flux_ratio(var_cp, corr_cp_cr, wqc_data, "h2o", wue)
-
-    # Eq. 7a
-    lhs = wue * wqc_data.wq / wqc_data.wc * (wcr_ov_wcp + 1)
-    rhs = wqe_ov_wqt + 1
-    resid1 = lhs - rhs
-
-    # Eq. 7b
-    lhs = wue * wqc_data.corr_qc
-    lhs *= math.sqrt(wqc_data.var_c * wqc_data.var_q) / var_cp
-    rhs = 1 + wqe_ov_wqt + wcr_ov_wcp
-    rhs += wqe_ov_wqt * wcr_ov_wcp / corr_cp_cr ** 2
-    resid2 = lhs - rhs
-    return [resid1, resid2]
-
-
-def _isvalid_root(corr_cp_cr, var_cp):
-    isvalid = True
-    mssg = ""
-    if var_cp <= 0:
-        isvalid = False
-        mssg += "var_cp <= 0; "
-    if not -1 < corr_cp_cr < 0:
-        isvalid = False
-        mssg += "corr_cp_cr <-1 OR >0; "
-    return isvalid, mssg
-
-
 def _check_fvs_assumptions(qcdat):
     pqc = qcdat.corr_qc
-    FcFq = qcdat.wc / qcdat.wq
-    lim0 = np.sqrt(qcdat.var_c / qcdat.var_q) / pqc
-    lim1 = np.sqrt(qcdat.var_c / qcdat.var_q) * pqc
-    if pqc < 0 and FcFq <= lim0:
-        mssg = "pqc < 0 and Fc/Fq <= (sigc/sigq)/pqc ({:.4}, {:.4}, {:.4})"
-        raise FVSError(mssg.format(pqc, FcFq, lim0))
-    if FcFq >= lim1:
-        mssg = "Fc/Fq >= (sigc/sigq)*pqc ({:.4}, {:.4})"
-        raise FVSError(mssg.format(FcFq, lim1))
+    wcwq = qcdat.wc / qcdat.wq
+    scsq = np.sqrt(qcdat.var_c / qcdat.var_q)
+    if (
+        math.isclose(pqc, 0)
+        or (pqc < 0 and wcwq <= scsq / pqc)
+        or (wcwq >= scsq * pqc)
+    ):
+        raise FVSError("Series data incompatible with FVS partitioning")
 
 
 def _isvalid_partition(flux_components):

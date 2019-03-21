@@ -1,38 +1,34 @@
 {% set name = "fluxpart" %}
-{% set version = "0.2.0" %}
-{% set file_ext = "tar.gz" %}
-{% set hash_type = "sha256" %}
-{% set hash_value = "044cf822b121a21d75a4ad5c2818cdc1691f6d8484a4030be1508702c10dc44b" %}
+{% set version = "0.2.1" %}
 
 package:
-  name: '{{ name|lower }}'
-  version: '{{ version }}'
+  name: "{{ name|lower }}"
+  version: "{{ version }}"
 
 source:
-  fn: '{{ name }}-{{ version }}.{{ file_ext }}'
-  url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.{{ file_ext }}
-  '{{ hash_type }}': '{{ hash_value }}'
+  url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.tar.gz
+  sha256: 5a084871b30396aacc7e93bdd822f5fbfc41b082d0b65fc856dc12ac27aea05b
 
 build:
   number: 0
-  script: python setup.py install --single-version-externally-managed --record=record.txt
+  script: "{{ PYTHON }} -m pip install . --no-deps --ignore-installed -vv "
 
 requirements:
   host:
-    - python
-    - setuptools
-    - numpy
-    - matplotlib
-    - pandas
-    - pywavelets
     - attrs
+    - matplotlib
+    - numpy
+    - pandas
+    - pip
+    - python
+    - pywavelets
   run:
-    - python
-    - numpy
-    - matplotlib
-    - pandas
-    - pywavelets
     - attrs
+    - matplotlib
+    - numpy
+    - pandas
+    - python
+    - pywavelets
 
 test:
   imports:
@@ -44,13 +40,12 @@ test:
 about:
   home: https://github.com/usda-ars-ussl/fluxpart
   license: Public Domain CC0
-  license_family: PUBLIC-DOMAIN
-  license_file: ''
+  license_family: CC
+  license_file: 
   summary: Module for partitioning eddy covariance flux measurements.
-  description: Python 3 module implementing the Scanlon and Sahu (2008) procedure for partitioning eddy covariance measurements of water vapor and carbon dioxide fluxes into stomatal (transpiration, photosynthesis)
-    and nonstomatal (evaporation, respiration) components.
-  doc_url: ''
-  dev_url: ''
+  doc_url: 
+  dev_url: 
 
 extra:
-  recipe-maintainers: ''
+  recipe-maintainers:
+    - your-github-id-here

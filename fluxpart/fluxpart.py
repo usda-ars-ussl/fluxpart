@@ -675,7 +675,7 @@ def _peektime(files, **kwargs):
     elif kwargs["filetype"] == "ghg":
         for file_ in files:
             with zipfile.ZipFile(file_) as z:
-                with z.open(file_[:-3] + "data", "r") as f:
+                with z.open(os.path.basename(file_)[:-3] + "data", "r") as f:
                     for _ in range(kwargs["skiprows"]):
                         f.readline()
                     row = f.readline().decode("utf-8").split(sep)

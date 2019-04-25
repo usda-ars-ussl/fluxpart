@@ -1,6 +1,7 @@
 from collections import namedtuple
 from itertools import permutations
 from math import exp
+import os
 import warnings
 import zipfile
 
@@ -92,8 +93,9 @@ def multifile_read_ghg(files, *args, **kwargs):
     """Buffered pd.read_csv of data split across multiple files."""
     for file_ in files:
         with zipfile.ZipFile(file_) as z:
+            fn = os.path.basename(file_)
             try:
-                df = pd.read_csv(z.open(file_[:-3] + "data"), *args, **kwargs)
+                df = pd.read_csv(z.open(fn[:-3] + "data"), *args, **kwargs)
             except Exception as e:
                 mssg = "Skipping file " + str(file_) + " because " + e.args[0]
                 warnings.warn(mssg, HFDataReadWarning)

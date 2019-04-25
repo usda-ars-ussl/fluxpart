@@ -1,5 +1,5 @@
 {% set name = "fluxpart" %}
-{% set version = "0.2.1" %}
+{% set version = "0.2.2" %}
 
 package:
   name: "{{ name|lower }}"
@@ -7,7 +7,7 @@ package:
 
 source:
   url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.tar.gz
-  sha256: 5a084871b30396aacc7e93bdd822f5fbfc41b082d0b65fc856dc12ac27aea05b
+  sha256: e62295960f9665b2942cf5bb2cfd26a0543e73dfa48c902f81232a340fee5fdf
 
 build:
   number: 0

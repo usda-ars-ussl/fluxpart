@@ -487,8 +487,8 @@ class FVSResult(object):
 class FluxpartResult(object):
     def __init__(self, fp_results):
         if type(fp_results) is str:
+            self.df = pd.read_pickle(fp_results)
             with open(fp_results, "rb") as f:
-                self.df = pd.read_pickle(f)
                 self.meta = pickle.load(f)
             return
         index = pd.DatetimeIndex(r.label for r in fp_results)
@@ -624,8 +624,8 @@ class FluxpartResult(object):
         )
 
     def save(self, filename):
+        self.df.to_pickle(filename)
         with open(filename, "wb") as f:
-            self.df.to_pickle(f)
             pickle.dump(self.meta, f)
 
 

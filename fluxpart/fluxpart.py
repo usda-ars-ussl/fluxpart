@@ -488,8 +488,8 @@ class FluxpartResult(object):
     def __init__(self, fp_results):
         if type(fp_results) is str:
             self.df = pd.read_pickle(fp_results)
-            with open(fp_results, "rb") as f:
-                self.meta = pickle.load(f)
+            # with open(fp_results, "rb") as f:
+            #     self.meta = pickle.load(f)
             return
         index = pd.DatetimeIndex(r.label for r in fp_results)
         df0 = pd.DataFrame(
@@ -625,8 +625,8 @@ class FluxpartResult(object):
 
     def save(self, filename):
         self.df.to_pickle(filename)
-        with open(filename, "wb") as f:
-            pickle.dump(self.meta, f)
+        # with open(filename, "ab") as f:
+        #     pickle.dump(self.meta, f)
 
 
 def _converter_func(slope, intercept):

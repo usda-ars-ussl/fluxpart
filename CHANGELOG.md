@@ -1,3 +1,6 @@
+# v0.2.4 (2019-04-30)
+- No longer saving/pickling fluxpart meta data, was not working with pandas 0.24  
+
 # v0.2.3 (2019-04-30)
 - Fix save/read of fluxpart results for pandas 0.24  
 

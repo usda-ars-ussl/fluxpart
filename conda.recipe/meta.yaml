@@ -1,17 +1,17 @@
 {% set name = "fluxpart" %}
-{% set version = "0.2.4" %}
+{% set version = "0.2.5" %}
 
 package:
   name: "{{ name|lower }}"
   version: "{{ version }}"
 
 source:
-  url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.tar.gz
-  sha256: c94535d13d3981e8769d46387af440b80746192a2de6b17742fbfc58b3c5638f
+  url: "https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.tar.gz"
+  sha256: 6aff25dfa6bfcf558e5f12d2022e9dbaa63d8df87cbf24b87f5e79a93e46e58f
 
 build:
   number: 0
-  script: "{{ PYTHON }} -m pip install . --no-deps --ignore-installed -vv "
+  script: "{{ PYTHON }} -m pip install . -vv"
 
 requirements:
   host:
@@ -38,11 +38,11 @@ test:
     - pandas
 
 about:
-  home: https://github.com/usda-ars-ussl/fluxpart
+  home: "https://github.com/usda-ars-ussl/fluxpart"
   license: Public Domain CC0
   license_family: CC
   license_file: 
-  summary: Module for partitioning eddy covariance flux measurements.
+  summary: "Module for partitioning eddy covariance flux measurements."
   doc_url: 
   dev_url: 
 

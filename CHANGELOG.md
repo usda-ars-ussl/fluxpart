@@ -1,3 +1,7 @@
+# v0.2.5 (2019-10-31)
+- Add support for q and c data being molar ratio instead of mass concentration.
+- Fix typo in docs figure legend (GPP -> NEE)
+
 # v0.2.4 (2019-04-30)
 - No longer saving/pickling fluxpart meta data, was not working with pandas 0.24  
 

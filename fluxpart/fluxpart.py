@@ -632,6 +632,9 @@ class FluxpartResult(object):
 def _converter_func(slope, intercept):
     """Return a function for linear transform of data."""
 
+    if type(slope) is str:
+        return slope
+
     def func(val):
         return slope * val + intercept
 

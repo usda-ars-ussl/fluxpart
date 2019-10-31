@@ -184,6 +184,12 @@ hfd_format["unit_convert"] \: dict
     The dictionary keys are the variable names.
     For example, if all data are in SI units except P and c, which are in kPa and mg/m^3, respectively, then set: ``hfd_options["unit_convert"] = {"P": 1e3, "c": 1e-6}``,
     since it is necessary to multiply the kPa pressure data by 1e3 to obtain the SI pressure unit (Pa), and the mg/m^3 CO2 data by 1e-6 to obtain the SI concentration unit (kg/m^3).
+    c and q data can be converted this way if they have units of mass or moles per volume.
+    If instead the c and q data are given as mole fractions (e.g., mmol of q per mol dry air), then set the c and q converters to one of the following:
+    "ppm_dry", "ppt_dry", "ppm_wet", or "ppt_wet".
+    Use the "_dry" versions if the mole fraction data are w.r.t. to dry air (no water vapor) and "_wet" if they are w.r.t. moist air.
+    For example, if q is in mmol q per mol dry air and c is umol c per mol dry air, then:
+    ``{"P": 1e3, "q": "ppt_dry", "c": "ppm_dry"}``.
 
 hfd_format["temper_unit"] \: {"K", "C"}
     Temperature data units. Default is "K" (Kelvin).

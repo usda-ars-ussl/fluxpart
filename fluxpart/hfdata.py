@@ -363,8 +363,27 @@ class HFDataSource(object):
         return df
 
     def _set_units(self, df):
+        conc_are_mole_ratios = False
         for var, func in self._converters.items():
-            df.loc[:, var] = func(df.loc[:, var])
+            if callable(func):
+                df.loc[:, var] = func(df.loc[:, var])
+            else:
+                conc_are_mole_ratios = True
+        if conc_are_mole_ratios:
+            q_units = self._converters["q"]
+            c_units = self._converters["c"]
+            p = df.loc[:, "P"]
+            t = df.loc[:, "T"]
+            coef = 1e3 if q_units[:3] == "ppt" else 1e6
+            q_mole_ratio = df.loc[:, "q"] / coef
+            df.loc[:, "q"] = q_mole_ratio * p / GC.vapor / t
+            coef = 1e3 if c_units[:3] == "ppt" else 1e6
+            c_mole_ratio = df.loc[:, "c"] / coef
+            df.loc[:, "c"] = c_mole_ratio * p / GC.co2 / t
+            if c_units[-3:] == "dry":
+                df.loc[:, "c"] /= 1 + q_mole_ratio
+            if q_units[-3:] == "dry":
+                df.loc[:, "q"] /= 1 + q_mole_ratio
         return df
 
     @property

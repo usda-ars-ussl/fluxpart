@@ -203,7 +203,9 @@ def fvspart(
     if len(files) == 0:
         print("No files found!")
         return
-    if not time_sorted:
+    if time_sorted:
+        sorted_files = files
+    else:
         if stdout:
             print("Reading {} file datetimes ...".format(len(files)))
         times = _peektime(files, **hfd_format)
@@ -660,17 +662,14 @@ def _peektime(files, **kwargs):
         dtcols = kwargs["time_col"]
         if type(dtcols) is int:
             dtcols = [dtcols]
-        sep = ","
-        if "delimiter" in kwargs:
-            sep = kwargs["delimiter"]
-        if "sep" in kwargs:
-            sep = kwargs["sep"]
+        sep = kwargs.get("delimiter", ",")
+        sep = kwargs.get("sep", sep)
         datetimes = []
         to_datetime_kws = kwargs.get("to_datetime_kws", {})
     if kwargs["filetype"] == "csv":
         for file_ in files:
             with open(file_, "rt") as f:
-                for _ in range(kwargs["skiprows"]):
+                for _ in range(kwargs.get("skiprows", 0)):
                     f.readline()
                 row = f.readline().split(sep)
                 tstamp = " ".join([row[i].strip("'\"") for i in dtcols])
@@ -679,7 +678,7 @@ def _peektime(files, **kwargs):
         for file_ in files:
             with zipfile.ZipFile(file_) as z:
                 with z.open(os.path.basename(file_)[:-3] + "data", "r") as f:
-                    for _ in range(kwargs["skiprows"]):
+                    for _ in range(kwargs.get("skiprows", 0)):
                         f.readline()
                     row = f.readline().decode("utf-8").split(sep)
                     tstamp = " ".join([row[i].strip("'\"") for i in dtcols])

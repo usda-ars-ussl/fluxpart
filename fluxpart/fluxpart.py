@@ -168,7 +168,6 @@ def fvspart(
         _validate_hfd_format(hfd_format)
 
     hfd_options = {**HFD_OPTIONS, **(hfd_options or {})}
-    wue_options = {**WUE_OPTIONS, **(wue_options or {})}
     part_options = {**PART_OPTIONS, **(part_options or {})}
 
     unit_convert = hfd_format.pop("unit_convert", {})
@@ -177,25 +176,6 @@ def fvspart(
     if temper_unit == "C" or temper_unit == "CELSIUS":
         converters["T"] = _converter_func(1.0, 273.15)
     hfd_format["converters"] = converters
-
-    # TODO: these should work with file objects, not just str name
-    heights, leaf_temper = None, None
-    canopy_ht = wue_options.pop("canopy_ht", None)
-    meas_ht = wue_options.pop("meas_ht", None)
-    if "heights" in wue_options:
-        heights = wue_options.pop("heights")
-        if not callable(heights):
-            heights = _lookup(heights, 0, 1, 2)
-    if "leaf_temper" in wue_options:
-        leaf_temper = wue_options.pop("leaf_temper")
-        if type(leaf_temper) is str:
-            leaf_temper = _lookup(leaf_temper, 0, 1)
-    if "daytime" in part_options:
-        if type(part_options["daytime"]) is str:
-            part_options["daytime"] = _lookup(part_options["daytime"], 0, 1, 2)
-    if meas_wue:
-        if type(meas_wue) is str:
-            meas_wue = _lookup(meas_wue, 0, 1)
 
     if stdout:
         print("Getting filenames ...")
@@ -291,38 +271,15 @@ def fvspart(
             continue
 
         try:
-            if meas_wue:
-                if callable(meas_wue):
-                    leaf_wue = WUE(wue=meas_wue(datetime))
-                else:
-                    leaf_wue = WUE(wue=float(meas_wue))
-            else:
-                if heights is not None:
-                    if callable(heights):
-                        canopy_ht, meas_ht = heights(date)
-                    else:
-                        canopy_ht, meas_ht = heights
-                else:
-                    if callable(canopy_ht):
-                        canopy_ht = canopy_ht(date)
-                    if callable(meas_ht):
-                        meas_ht = meas_ht(date)
-                leaf_t = None
-                if leaf_temper is not None:
-                    if callable(leaf_temper):
-                        leaf_t = leaf_temper(datetime)
-                    else:
-                        leaf_t = float(leaf_temper)
-                    if temper_unit == "C" or temper_unit == "CELSIUS":
-                        leaf_t = leaf_t + 273.15
-                leaf_wue = water_use_efficiency(
-                    hfsum,
-                    canopy_ht=canopy_ht,
-                    meas_ht=meas_ht,
-                    leaf_temper=leaf_t,
-                    **wue_options,
-                )
-
+            leaf_wue = _set_leaf_wue(
+                meas_wue,
+                wue_options,
+                part_options,
+                hfsum,
+                date,
+                datetime,
+                temper_unit,
+            )
         except WUEError as e:
             results.append(
                 FVSResult(
@@ -655,6 +612,67 @@ def _files(file_or_dir):
             path = os.path.join(path, "*")
         unsorted_files += iglob(path)
     return unsorted_files
+
+
+def _set_leaf_wue(
+    meas_wue, wue_options, part_options, hfsum, date, datetime, temper_unit
+):
+    # TODO: these should work with file objects, not just str name
+    wue_options = {**WUE_OPTIONS, **(wue_options or {})}
+    heights, leaf_temper = None, None
+    canopy_ht = wue_options.pop("canopy_ht", None)
+    meas_ht = wue_options.pop("meas_ht", None)
+    if "heights" in wue_options:
+        heights = wue_options.pop("heights")
+        if not callable(heights):
+            heights = _lookup(heights, 0, 1, 2)
+    if "leaf_temper" in wue_options:
+        leaf_temper = wue_options.pop("leaf_temper")
+        if type(leaf_temper) is str:
+            leaf_temper = _lookup(leaf_temper, 0, 1)
+    if "daytime" in part_options:
+        if type(part_options["daytime"]) is str:
+            part_options["daytime"] = _lookup(part_options["daytime"], 0, 1, 2)
+    if meas_wue:
+        if type(meas_wue) is str:
+            meas_wue = _lookup(meas_wue, 0, 1)
+
+    try:
+        if meas_wue:
+            if callable(meas_wue):
+                leaf_wue = WUE(wue=meas_wue(datetime))
+            else:
+                leaf_wue = WUE(wue=float(meas_wue))
+        else:
+            if heights is not None:
+                if callable(heights):
+                    canopy_ht, meas_ht = heights(date)
+                else:
+                    canopy_ht, meas_ht = heights
+            else:
+                if callable(canopy_ht):
+                    canopy_ht = canopy_ht(date)
+                if callable(meas_ht):
+                    meas_ht = meas_ht(date)
+            leaf_t = None
+            if leaf_temper is not None:
+                if callable(leaf_temper):
+                    leaf_t = leaf_temper(datetime)
+                else:
+                    leaf_t = float(leaf_temper)
+                if temper_unit == "C" or temper_unit == "CELSIUS":
+                    leaf_t = leaf_t + 273.15
+            leaf_wue = water_use_efficiency(
+                hfsum,
+                canopy_ht=canopy_ht,
+                meas_ht=meas_ht,
+                leaf_temper=leaf_t,
+                **wue_options,
+            )
+        return leaf_wue
+
+    except WUEError:
+        raise
 
 
 def _peektime(files, **kwargs):

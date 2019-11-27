@@ -15,19 +15,19 @@ DATADIR = os.path.join(TESTDIR, "data")
 def test_hfdata_reader():
     toy_data = (
         "foobar baz\n"
-        "asdf,0,2,3,4,5,6,7,9,0\n"
-        "asdf,1,2,3,4,5,6,7,9,0\n"
-        "asdf,2,2,3,4,5,6,7,9,1\n"
-        "asdf,3,2,3,4,5,6,,9,0\n"
-        "asdf,4,2,3,4,5,6,7,9,0\n"
+        "'asdf',0,2,3,4,5,6,7,9,0\n"
+        "'asdf',1,2,3,4,5,6,7,9,0\n"
+        "'asdf',2,2,3,4,5,6,7,9,1\n"
+        "'asdf',3,2,3,4,5,6,,9,0\n"
+        "'asdf',4,2,3,4,5,6,7,9,0\n"
         "# foo\n"
-        "asdf,5,2,3,4,5,6,7,9,0\n"
-        "asdf,6,2,3,4,5,6,7,xxx,0\n"
-        "asdf,7,???,3,4,5,6,7,9,0\n"
-        "asdf,8,2,3,4,5,6,7,9,0\n"
-        "asdf,9,2,3,4,5,6,7,9,0\n"
-        "asdf,10, 2,3,4,5,6,7,9,0\n"
-        "asdf,11,-2,3,4,5,6,7,9,0\n"
+        "'asdf',5,2,3,4,5,6,7,9,0\n"
+        "'asdf',6,2,3,4,5,6,7,xxx,0\n"
+        "'asdf',7,???,3,4,5,6,7,9,0\n"
+        "'asdf',8,2,3,4,5,6,7,9,0\n"
+        "'asdf',9,2,3,4,5,6,7,9,0\n"
+        "'asdf',10,2,3,4,5,6,7,9,0\n"
+        "'asdf',11,-2,3,4,5,6,7,9,0\n"
     )
 
     source = HFDataSource(
@@ -52,6 +52,38 @@ def test_hfdata_reader():
     npt.assert_allclose(toy.dataframe["c"], 3 * [6])
     npt.assert_allclose(toy.dataframe["T"], 3 * [4])
     npt.assert_allclose(toy.dataframe["P"], 3 * [5])
+
+    # missing time series data
+    toy_data = (
+        "foobar baz\n"
+        "'2013-01-14 08:21:48'  ,0,2,3,4,5,6,7,9,0\n"
+        "'2013-01-14 08:21:48.1',1,2,3,4,5,6,7,9,0\n"
+        "'2013-01-14 08:21:48.2',2,2,3,4,5,6,7,9,1\n"
+        "'2013-01-14 08:21:48.3',3,2,3,4,5,6,,9,0\n"
+        "'2013-01-14 08:21:48.4',4,2,3,4,5,6,7,9,0\n"
+        "'2013-01-14 09:20:10'  ,5,2,3,4,5,6,7,9,0\n"
+        "'2013-01-14 09:20:10.1',6,2,3,4,5,6,7,9,0\n"
+        "'2013-01-14 09:20:10.2',7,2,3,4,5,6,7,9,0\n"
+        "'2013-01-14 09:20:10.3',8,2,3,4,5,6,7,9,0\n"
+        "'2013-01-14 09:20:10.4',9,2,3,4,5,6,7,9,0\n"
+        "'2013-01-14 09:20:10.5',10,2,3,4,5,6,7,9,0\n"
+        "'2013-01-14 09:20:10.6',11,-2,3,4,5,6,7,9,0\n"
+    )
+
+    source = HFDataSource(
+        files=[io.BytesIO(toy_data.encode())],
+        filetype="csv",
+        cols=(1, 2, 3, 6, 7, 4, 5),
+        time_col=0,
+        skiprows=1,
+        converters={"q": _converter_func(10., 0)},
+        delimiter=",",
+    )
+
+    toy = HFData(next(source.reader(interval=None)))
+    toy.cleanse(rd_tol=0.1, ad_tol=2)
+    assert int(toy.dataframe.iloc[0]["u"]) == 6
+    assert int(toy.dataframe.iloc[-1]["u"]) == 11
 
     # toa5
     cols = (2, 3, 4, 5, 6, 7, 8)

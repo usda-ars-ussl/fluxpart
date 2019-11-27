@@ -1,3 +1,9 @@
+# v0.2.6 (2019-11-27)
+- Add "opt" model for intercellular leaf CO2
+- Additional checks for missing high frequency data
+- Additional outputs added to high freqency data summary
+- Improved error messaging
+
 # v0.2.5 (2019-10-31)
 - Add support for q and c data being molar ratio instead of mass concentration.
 - Fix typo in docs figure legend (GPP -> NEE)

@@ -452,6 +452,14 @@ class HFSummary(object):
         # prints common units instead of SI
         return self.results_str().format(**self.common_units())
 
+    @property
+    def fc_ov_fq(self):
+        return self.cov_w_c / self.cov_w_q
+
+    @property
+    def sigc_ov_sigq(self):
+        return math.sqrt(self.var_co2 / self.var_vapor)
+
     def results_str(self):
         lab = self.common_units_labels()
         return (
@@ -492,6 +500,8 @@ class HFSummary(object):
             var_co2=1e12 * self.var_co2,
             corr_q_c=self.corr_q_c,
             cov_w_q=1e3 * self.cov_w_q,
+            fc_ov_fq=1e3 * self.fc_ov_fq,
+            sigc_ov_sigq=1e3 * self.sigc_ov_sigq,
             H=self.H,
             cov_w_c=1e6 * self.cov_w_c,
             rho_dryair=self.rho_dryair,
@@ -514,6 +524,8 @@ class HFSummary(object):
             var_co2="(mg/m^3)^2",
             corr_q_c="",
             cov_w_q="g/m^2/s",
+            fc_ov_fq="mg/g",
+            sigc_ov_sigq="mg/g",
             H="W/m^2",
             cov_w_c="mg/m^2/s",
             rho_dryair="kg/m^3",

@@ -168,8 +168,9 @@ When passing a custom ``hfd_format`` dictionary in this manner, it is required a
 
 The primary ``hfd_format`` keys are:
 
-hfd_format["filetype"] \: {"csv", "tob1"}, *required*
-    "csv" = delimited text file; "tob1" = Campbell Scientific binary data table format.
+hfd_format["filetype"] \: {"csv", "tob1", "ghg", "pd.df"}, *required*
+    "csv" = delimited text file; "tob1" = Campbell Scientific binary data table format;
+    "ghg" = LI-COR raw data format; "pd.df" = pandas dataframe.
 
 hfd_format["cols"] \: 7*(int,), *required*
     7-tuple of integers indicating the data column numbers that contain series data for (u, v, w, c, q, T, P), in that order.
@@ -215,7 +216,7 @@ hfd_format["flags"] \: 2-tuple or list of 2-tuples
     and goodval is the value of the flag that indicates a good data record.
 
 
-The second pre-defined format that is currently available uses the Campbell Scientific tob1 file format:
+A second pre-defined format that is currently available uses the Campbell Scientific tob1 file format:
 
 .. code-block:: python
 
@@ -235,7 +236,27 @@ which is equivalent to:
 With tob1 files, `time_col` is not used.
 The date and time are determined from the named "SECONDS" and "NANOSECONDS" columns.
 
-Related: :ref:`modifyformat-howto`
+A third pre-defined format uses the LI-COR raw data format:
+
+.. code-block:: python
+
+    hfd_format="EC-GHG1"
+
+which is equivalent to:
+
+.. code-block:: python
+
+    hfd_format = {
+        "filetype": "ghg",
+        "sep": "\t",
+        "cols": (11, 12, 13, 7, 8, 9, 10),
+        "time_col": [5, 6],
+        "unit_convert": dict(q=1e-3 * MW.vapor, c=1e-3 * MW.co2, P=1e3),
+        "temper_unit": "C",
+        "skiprows": 8,
+        "na_values": "NAN",
+        "to_datetime_kws": {"format": "%Y-%m-%d %H:%M:%S:%f"},
+    }
 
 Water Use Efficiency
 ~~~~~~~~~~~~~~~~~~~~

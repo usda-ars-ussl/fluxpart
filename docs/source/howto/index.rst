@@ -8,4 +8,3 @@ HOWTO
 
    performance
    qcaverage
-   modifyformat

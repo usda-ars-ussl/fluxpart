@@ -41,6 +41,12 @@ Works Cited
     flux partitioning. Water Resour. Res., 44, W10418,
     doi:`10.1029/2008WR006932 <https://doi.org/10.1029/2008WR006932>`_.
 
+.. [SSS19] T. M. Scanlon, D. F. Schmidt, T. H. Skaggs (2019). Correlation-based
+    flux partitioning of water vapor and carbon dioxide fluxes: Method
+    simplification and estimation of canopy water use efficiency. Agricultural
+    and Forest Meteorology, 279, 107732, 
+    doi:`10.1016/j.agrformet.2019.107732 <https://doi.org/10.1016/j.agrformet.2019.107732>`_.
+
 .. [SAAS+18] T. H. Skaggs, R. G. Anderson, J. G. Alfieri, T. M. Scanlon,
     W. P. Kustas (2018). Fluxpart: Open source software for partitioning carbon
     dioxide and water vapor fluxes. Agricultural and Forest Meteorology

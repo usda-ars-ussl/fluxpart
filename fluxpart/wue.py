@@ -66,7 +66,7 @@ def water_use_efficiency(
         Vegetation canopy height (m).
     ppath : {'C3', 'C4'}
         photosynthetic pathway
-    ci_mod : {'const_ratio', 'const_ppm', 'linear', 'sqrt'}
+    ci_mod : {'const_ratio', 'const_ppm', 'linear', 'sqrt', 'opt'}
         Specifies the model to be used to determine the leaf
         intercellular CO2 concentration. See Notes below for model
         descriptions.
@@ -149,6 +149,12 @@ def water_use_efficiency(
         The paramater lambd has units of kg-CO2 / m^3 / Pa, and defaults
         to 22e-9 for C3 plants. The sqrt model is not enabled for C4
         plants.
+
+    'opt'
+        ci/ca is determined based on an optimization model. The
+        estimated value is given by Eq. 19 of [SSS19]_. With this
+        approach, no paramters (`ci_mod_param`) are specified. The model
+        may not be suitable for C4 vegetation.   
 
     """
     if canopy_ht > meas_ht:

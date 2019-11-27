@@ -218,8 +218,8 @@ def fvs_partition(
     wue_options["ppath"] : {"C3", "C4"}
         Photosynthetic pathway.
     wue_options["ci_mod"] : str
-        Valid values: "const_ratio", "const_ppm", "linear", "sqrt".
-        See: :func:`~fluxpart.wue.water_use_efficiency`.
+        Valid values: "const_ratio", "const_ppm", "linear", "sqrt",
+        "opt".  See: :func:`~fluxpart.wue.water_use_efficiency`.
     wue_options["ci_mod_param"] : float or (float, float)
         Paramter values to be used with `ci_mod`.
         See: :func:`~fluxpart.wue.water_use_efficiency`.

@@ -134,18 +134,16 @@ def fvspart_interval(wqc_data, wue, wipe_if_invalid=False):
 
     """
     try:
-        _check_fvs_assumptions(wqc_data)
+        rootsoln = findroot(wqc_data, wue)
     except FVSError as e:
-        mass_fluxes = MassFluxes()
-        fvsps = FVSPSolution(
+        fvsp = FVSPSolution(
             wqc_data=wqc_data,
             valid_partition=False,
             fvsp_mssg=e.args[0],
             rootsoln=RootSoln(valid_root=False),
         )
-        return mass_fluxes, fvsps
+        return MassFluxes(), fvsp
 
-    rootsoln = findroot(wqc_data, wue)
     if not rootsoln.valid_root:
         fvsp = FVSPSolution(
             wqc_data=wqc_data,
@@ -153,7 +151,8 @@ def fvspart_interval(wqc_data, wue, wipe_if_invalid=False):
             valid_partition=False,
             fvsp_mssg=rootsoln.root_mssg,
         )
-        return MassFluxes, fvsp
+        return MassFluxes(), fvsp
+
     mass_fluxes = _mass_fluxes(
         var_cp=rootsoln.var_cp,
         corr_cp_cr=rootsoln.corr_cp_cr,
@@ -189,27 +188,37 @@ def findroot(wqc_data, wue):
         :class:`~fluxpart.containers.RootSoln`
 
     """
+    try:
+        _check_fvsp_assumptions(wqc_data, wue)
+    except FVSError:
+        raise
+
     co2soln_id = None
     sig_cr, var_cp, corr_cp_cr = np.nan, np.nan, np.nan
     valid_root = False
-    valid_mssg = "Series data and WUE value incompatible with FVS"
 
     var_q, var_c = wqc_data.var_q, wqc_data.var_c
     sd_q, sd_c = math.sqrt(var_q), math.sqrt(var_c)
     wq, wc = wqc_data.wq, wqc_data.wc
     corr_qc = wqc_data.corr_qc
 
-    wcwq = wc / wq
-    scsq = sd_c / sd_q
-    if corr_qc > 0 and ((wue < wcwq < 0) or (0 < wcwq < scsq * corr_qc)):
-        co2soln_id = 0 # minus root
-    if corr_qc < 0:
-        if wcwq * corr_qc < scsq < wcwq / corr_qc:
-            co2soln_id = 1 if scsq <= corr_qc * wue else 0
+    # wcwq = wc / wq
+    # scsq = sd_c / sd_q
 
-    if co2soln_id in (0, 1):
+    # if corr_qc > 0 and ((wue < wcwq < 0) or (0 < wcwq < scsq * corr_qc)):
+    #     co2soln_id = 0 # minus root
+    # if corr_qc < 0:
+    #     if wcwq * corr_qc < scsq < wcwq / corr_qc:
+    #         co2soln_id = 1 if scsq <= corr_qc * wue else 0
+
+    co2soln_id = 0 # minus root
+    if corr_qc < 0 and sd_c / sd_q < corr_qc * wue:
+        co2soln_id = 1 # plus root
+
+    # if co2soln_id in (0, 1):
+    if 1:
         valid_root = True
-        valid_mssg = ""
+        mssg = ""
 
         numer = -2 * corr_qc * sd_c * sd_q * wq * wc
         numer += var_c * wq ** 2 + var_q * wc ** 2
@@ -239,7 +248,7 @@ def findroot(wqc_data, wue):
         sig_cr=sig_cr,
         co2soln_id=co2soln_id,
         valid_root=valid_root,
-        root_mssg=valid_mssg,
+        root_mssg=mssg,
     )
 
 
@@ -302,16 +311,25 @@ def _mass_fluxes(var_cp, corr_cp_cr, wqc_data, wue, co2soln_id):
     )
 
 
-def _check_fvs_assumptions(qcdat):
+def _check_fvsp_assumptions(qcdat, wue):
     pqc = qcdat.corr_qc
     wcwq = qcdat.wc / qcdat.wq
     scsq = np.sqrt(qcdat.var_c / qcdat.var_q)
-    if (
-        math.isclose(pqc, 0)
-        or (pqc < 0 and wcwq <= scsq / pqc)
-        or (wcwq >= scsq * pqc)
-    ):
-        raise FVSError("Series data incompatible with FVS partitioning")
+    mssg = ""
+    if wue > wcwq:
+        mssg += "wue>Fc/Fq; ".format(wue, wcwq)
+    if wcwq >= pqc * scsq:
+        m = "Fc/Fq>=pqc*sigc/sigq; "
+        mssg += m.format(wcwq, scsq * pqc)
+    if pqc < 0 and wcwq < scsq / pqc:
+        m = "Fc/Fq<sigc/sigq/pqc; "
+        mssg += m.format(wcwq, scsq / pqc)
+    if math.isclose(pqc, 0, abs_tol=1e-15):
+        mssg += "pqc=0;".format(pqc)
+    if mssg:
+        # vals = "(Fc/Fq={:.4}; sigc/sigq={:.4}; W={:.4}; pqc={:.4})"
+        # vals = vals.format(wcwq, scsq, wue, pqc)
+        raise FVSError(mssg) # + vals)
 
 
 def _isvalid_partition(flux_components):

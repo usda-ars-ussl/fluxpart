@@ -206,7 +206,7 @@ def water_use_efficiency(
         vpdm = vapor_press_deficit_mass(ambient_h2o, leaf_T)
         vpd = vapor_press_deficit(ambient_h2o, leaf_T)
         if vpdm < 0:
-            _bad_vpdm = "Negative vapor pressure deficit, {:.4} kg/m^3"
+            _bad_vpdm = "vpd = {:.4} kg/m^3 <= 0"
             raise WUEError(_bad_vpdm.format(vpdm))
         m = -(varc * wq - pqc * sqrt(varq * varc) * wc)
         m /= varq * wc - pqc * sqrt(varq * varc) * wq

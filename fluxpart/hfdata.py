@@ -38,11 +38,8 @@ class TooFewDataError(Error):
 VAR_NAMES = ["u", "v", "w", "c", "q", "T", "P"]
 
 _badfiletype = "File type not recognized ({})"
-_toofewdata = (
-    "The longest contiguous run of valid data was too short:\n"
-    "(length data / total length) = {frac:.4} < rd_tol = {rd_tol:.4}\n"
-    "OR data length = {N} < ad_tol = {ad_tol}"
-)
+_toofewdata_rel = "data frac = {frac:.4} < rd_tol = {rd_tol:.4}"
+_toofewdata_abs = "data length = {N} < ad_tol = {ad_tol}"
 
 
 class HFData(object):
@@ -120,11 +117,13 @@ class HFData(object):
 
         # verify sufficient data length
         data_frac = len_max_slice / data.shape[0]
-        if data_frac < rd_tol or len_max_slice < ad_tol:
+        if data_frac < rd_tol:
             self.dataframe = None
-            mssg = _toofewdata.format(
-                frac=data_frac, rd_tol=rd_tol, N=len_max_slice, ad_tol=ad_tol
-            )
+            mssg = _toofewdata_rel.format(frac=data_frac, rd_tol=rd_tol)
+            raise TooFewDataError(mssg)
+        if len_max_slice < ad_tol:
+            self.dataframe = None
+            mssg = _toofewdata_abs.format(N=len_max_slice, ad_tol=ad_tol)
             raise TooFewDataError(mssg)
 
         self.dataframe = data.iloc[max_slice]

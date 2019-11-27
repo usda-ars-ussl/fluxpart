@@ -80,7 +80,7 @@ PART_OPTIONS = dict(adjust_fluxes=True)
 
 _bad_ustar = "ustar = {:.4} <= ustar_tol = {:.4}"
 _bad_vpd = "vpd = {:.4} Pa <= 0"
-_bad_qflux = "Fq = cov(w,q) = {:.4} <= 0"
+_bad_qflux = "Fq = {:.4} <= 0"
 _night_mssg = "Nighttime, fluxes all non-stomatal"
 _fp_result_str = (
     "===============\n"
@@ -213,7 +213,7 @@ def fvspart(
         date = datetime.date()
         time = datetime.time()
         if stdout:
-            print("Processing {}".format(datetime))
+            print("{}: ".format(datetime), end="")
 
         sunrise, sunset = None, None
         nighttime = False
@@ -323,9 +323,11 @@ def fvspart(
                 wue=leaf_wue,
             )
         )
-        if stdout and verbose:
+        if stdout:
             if fvsp.mssg:
                 print(fvsp.mssg)
+            else:
+                print("OK")
 
     return FluxpartResult(results)
 

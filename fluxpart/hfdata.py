@@ -329,7 +329,10 @@ class HFDataSource(object):
 
         si_dfs = (self._set_units(df) for df in indx_dfs)
         hf_dfs = (self._set_flags(df) for df in si_dfs)
-        yield from util.chunked_df(hf_dfs, interval)
+        try:
+            yield from util.chunked_df(hf_dfs, interval)
+        except StopIteration:
+            return
 
     def _set_indices_csv(self, df):
         df.columns = self._names

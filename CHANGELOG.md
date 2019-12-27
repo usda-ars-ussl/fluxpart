@@ -1,3 +1,7 @@
+# v0.2.7 (2019-12-27)
+- Avoid divide-by-zero when Fcr/Fcp = -1
+- Update for Python 3.7 changes in StopIteration exceptions raised by generators
+
 # v0.2.6 (2019-11-27)
 - Add "opt" model for intercellular leaf CO2
 - Additional checks for missing high frequency data
@@ -5,7 +9,7 @@
 - Improved error messaging
 
 # v0.2.5 (2019-10-31)
-- Add support for q and c data being molar ratio instead of mass concentration.
+- Add support for q and c data being molar ratio instead of mass concentration
 - Fix typo in docs figure legend (GPP -> NEE)
 
 # v0.2.4 (2019-04-30)

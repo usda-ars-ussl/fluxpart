@@ -300,11 +300,10 @@ def flux_ratio(var_cp, corr_cp_cr, wqc_data, ftype, farg):
 
 def _mass_fluxes(var_cp, corr_cp_cr, wqc_data, wue, co2soln_id):
     """Calculate flux components for given (var_cp, corr_cp_cr) pair."""
-    wcr_ov_wcp = flux_ratio(var_cp, corr_cp_cr, wqc_data, "co2", co2soln_id)
-    # TODO: handle wcr_ov_wcp ~ -1
-    wcp = wqc_data.wc / (wcr_ov_wcp + 1)
+    wqe_ov_wqt = flux_ratio(var_cp, corr_cp_cr, wqc_data, "h2o", wue)
+    wqt = wqc_data.wq / (wqe_ov_wqt + 1)
+    wcp = wqt * wue
     wcr = wqc_data.wc - wcp
-    wqt = wcp / wue
     wqe = wqc_data.wq - wqt
     return MassFluxes(
         Fq=wqc_data.wq, Fqt=wqt, Fqe=wqe, Fc=wqc_data.wc, Fcp=wcp, Fcr=wcr

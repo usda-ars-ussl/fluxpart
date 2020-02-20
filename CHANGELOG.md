@@ -1,3 +1,6 @@
+# v0.2.8 (2020-02-20)
+- Fix bug affecting integrity check of TOB datafiles
+
 # v0.2.7 (2019-12-27)
 - Avoid divide-by-zero when Fcr/Fcp = -1
 - Update for Python 3.7 changes in StopIteration exceptions raised by generators

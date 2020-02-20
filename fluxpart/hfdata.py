@@ -106,7 +106,7 @@ class HFData(object):
             mask |= (data[var] < low) | (data[var] > high)
         if isinstance(data.index, pd.DatetimeIndex) and data.shape[0] > 1:
             diff = data.index.to_series().diff()
-            mask |= (diff > diff.mode()[0])
+            mask |= (abs((diff / diff.mode()[0]) - 1) > .0001)
 
         # Find longest span of valid (unmasked) data
         marray = np.ma.array(np.zeros([data.shape[0]]), mask=mask.values)

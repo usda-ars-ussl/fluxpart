@@ -1,3 +1,6 @@
+# v0.2.9 (2020-03-10)
+- Fix bug affecting reading of sunrise/sunset times from file
+
 # v0.2.8 (2020-02-20)
 - Fix bug affecting integrity check of TOB datafiles
 

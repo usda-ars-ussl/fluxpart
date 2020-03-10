@@ -176,6 +176,8 @@ def fvspart(
     if temper_unit == "C" or temper_unit == "CELSIUS":
         converters["T"] = _converter_func(1.0, 273.15)
     hfd_format["converters"] = converters
+    if "daytime" in part_options and type(part_options["daytime"]) is str:
+        part_options["daytime"] = _lookup(part_options["daytime"], 0, 1, 2)
 
     if stdout:
         print("Getting filenames ...")
@@ -632,9 +634,6 @@ def _set_leaf_wue(
         leaf_temper = wue_options.pop("leaf_temper")
         if type(leaf_temper) is str:
             leaf_temper = _lookup(leaf_temper, 0, 1)
-    if "daytime" in part_options:
-        if type(part_options["daytime"]) is str:
-            part_options["daytime"] = _lookup(part_options["daytime"], 0, 1, 2)
     if meas_wue:
         if type(meas_wue) is str:
             meas_wue = _lookup(meas_wue, 0, 1)

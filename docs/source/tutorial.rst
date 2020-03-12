@@ -360,13 +360,13 @@ Partitioning Options
 The ``part_options`` argument is a dictionary that can be used to set options for the partitioning algorithm.
 Currently, two fields are recognized:
 
-part_options["daylight"] \: filename or callable or 2-tuple, optional                    
+part_options["daytime"] \: filename or callable or 2-tuple, optional                    
     When specified, all fluxes for time intervals ending before sunrise or starting after sunset will be assumed non-stomatal.          
     If a filename (str) is passed, the file is a csv file with date stamps in the first column, sunrise times in the second, and sunset in the third.
     If a callable is passed, the function should take a datetime.date object as its sole argument and return a 2-tuple of time objects.
     If a 2-tuple is passed, it is a tuple of python datetime.time objects for (sunrise, sunset).        
 
-Example daylight csv file:
+Example daytime csv file:
 
 .. code-block:: none
 

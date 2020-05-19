@@ -4,7 +4,7 @@ from unittest import TestCase
 import numpy as np
 import numpy.testing as npt
 import pandas as pd
-from pandas.util.testing import assert_frame_equal
+from pandas._testing import assert_frame_equal
 
 from fluxpart.util import (
     stats2,

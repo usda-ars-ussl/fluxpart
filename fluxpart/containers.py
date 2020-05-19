@@ -203,7 +203,6 @@ class RootSoln(object):
     sig_cr = attr.ib(default=np.nan)
     co2soln_id = attr.ib(default=np.nan)
     valid_root = attr.ib(default=np.nan)
-    root_mssg = attr.ib(default="")
 
     def __str__(self, head=True):
         # Print common units instead of SI
@@ -220,7 +219,6 @@ class RootSoln(object):
             "  sig_cr = {sig_cr:.4} " + lab["sig_cr"] + "\n"
             "  co2soln_id = {co2soln_id:.0f}\n"
             "  valid_root = {valid_root}\n"
-            "  root_mssg = {root_mssg}"
         )
         return out
 
@@ -231,7 +229,6 @@ class RootSoln(object):
             sig_cr=1e6 * self.sig_cr,
             co2soln_id=self.co2soln_id,
             valid_root=self.valid_root,
-            root_mssg=self.root_mssg,
         )
 
     def common_units_labels(self):
@@ -241,7 +238,6 @@ class RootSoln(object):
             sig_cr="mg/m^3",
             co2soln_id="",
             valid_root="",
-            root_mssg="",
         )
 
 

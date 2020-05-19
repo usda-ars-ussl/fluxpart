@@ -65,7 +65,7 @@ def fvspart_progressive(w, q, c, wue, adjust_fluxes=True):
             if fvsp.fvsp_mssg:
                 mssg_for_unfiltered_data = fvsp.fvsp_mssg
             else:
-                mssg_for_unfiltered_data = fvsp.rootsoln.root_mssg
+                mssg_for_unfiltered_data = "NA"
 
         if fvsp.rootsoln.valid_root:
             if adjust_fluxes:
@@ -149,7 +149,7 @@ def fvspart_interval(wqc_data, wue, wipe_if_invalid=False):
             wqc_data=wqc_data,
             rootsoln=rootsoln,
             valid_partition=False,
-            fvsp_mssg=rootsoln.root_mssg,
+            fvsp_mssg="Invalid Root",
         )
         return MassFluxes(), fvsp
 
@@ -248,7 +248,6 @@ def findroot(wqc_data, wue):
         sig_cr=sig_cr,
         co2soln_id=co2soln_id,
         valid_root=valid_root,
-        root_mssg=mssg,
     )
 
 

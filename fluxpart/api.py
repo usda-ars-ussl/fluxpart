@@ -1,8 +1,16 @@
+import pickle
+import pandas as pd
 from .fluxpart import fvspart, FluxpartResult
 
 
 def fpread(saved_results):
-    return FluxpartResult(saved_results)
+    try:
+        return FluxpartResult(pd.read_pickle(saved_results))
+    except pickle.UnpicklingError:
+        df = pd.read_csv(
+            saved_results, index_col=[0], header=[0, 1], parse_dates=True
+        )
+        return FluxpartResult(df)
 
 
 def fvs_partition(

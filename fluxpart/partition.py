@@ -347,7 +347,7 @@ def _isvalid_partition(flux_components):
     if fc.Fcr <= 0:
         isvalid = False
         mssg += "Fcr <= 0; "
-    return isvalid, mssg
+    return isvalid, mssg or "OK"
 
 
 def _adjust_fluxes(flux_components, wue, Fq_tot, Fc_tot):

@@ -1,10 +1,13 @@
 import os
+import pickle
 from types import SimpleNamespace
 
 import numpy.testing as npt
+import pandas as pd
+from pandas._testing import assert_frame_equal
 
 # from fluxpart import flux_partition
-from fluxpart import fvs_partition
+from fluxpart import fvs_partition, fpread
 
 TESTDIR = os.path.dirname(os.path.realpath(__file__))
 
@@ -90,6 +93,40 @@ def test_flux_partition():
         fvsp.df.iloc[0]["fvsp_solution"]["var_cp"], 15.2944, atol=1
     )
     assert_flux_components(fvsp.df.iloc[0]["fluxes"], matlab_fluxes)
+
+
+def test_fpread(tmpdir):
+    """Test of writing and reading partitioning results."""
+
+    wue_data = {
+        "meas_ht": 7.11,
+        "canopy_ht": 4.42,
+        "ppath": "C3",
+        "ci_mod": "const_ratio",
+    }
+    fname = os.path.join(
+        TESTDIR, "data/TOA5_6843.ts_Above_2012_06_07_1300.dat"
+    )
+    fvsp = fvs_partition(
+        fname, wue_options=wue_data, hfd_format="ec-TOA5", interval="1min"
+    )
+    results_file = os.path.join(tmpdir, "foo.pkl")
+
+    fvsp.save(results_file)
+    readfvsp = fpread(results_file)
+    assert_frame_equal(fvsp.df, readfvsp.df)
+
+    fvsp.save_pickle(results_file)
+    readfvsp = fpread(results_file)
+    assert_frame_equal(fvsp.df, readfvsp.df)
+
+    fvsp.save_csv(results_file)
+    readfvsp = fpread(results_file)
+    #TODO: not testing wave_lvl, it shouldn't be a tuple
+    assert_frame_equal(
+        fvsp.df.drop("wave_lvl", axis=1, level=1),
+        readfvsp.df.drop("wave_lvl", axis=1, level=1),
+    )
 
 
 def assert_flux_components(calc, desired):

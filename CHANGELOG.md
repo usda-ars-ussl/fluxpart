@@ -1,3 +1,7 @@
+# v0.2.10 (2020-05-19)
+- Eliminate unused 'root_mssg' from the results
+- Enable saving and reading results in csv format
+
 # v0.2.9 (2020-03-10)
 - Fix bug affecting reading of sunrise/sunset times from file
 

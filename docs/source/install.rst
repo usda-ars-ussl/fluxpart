@@ -31,18 +31,18 @@ Requirements
 * PyWavelets_
 * attrs_ 
 
-Recommended
-~~~~~~~~~~~
-
-* Jupyter_
-
 Install
 ~~~~~~~
 
-**Update March 5, 2019:** The previously recommended installation method, using an environment.yml file hosted on Anaconda Cloud, has proven unreliable. 
-Apologies if this caused a problem.
+::
 
-To install fluxpart and create a conda environment, do this instead. Open this link,
+        conda install -c ussl fluxpart
+
+    or:
+
+        pip install fluxpart
+
+Alternatively, to install fluxpart and create a full conda environment, open this link,
 
 `environment.yml <https://raw.githubusercontent.com/usda-ars-ussl/fluxpart/master/conda.recipe/environment.yml>`_
 
@@ -51,14 +51,6 @@ Navigate to the directory where you saved `environment.yml`, and execute::
 
     conda env create -f environment.yml
     conda activate fp02
-
-Alternatively, if you don't want the full environment::
-
-        conda install -c ussl fluxpart
-
-    or:
-
-        pip install fluxpart
 
 
 -----------------------------
@@ -97,14 +89,16 @@ it is advised to update it  with::
 
     conda update conda
 
-Next, install ``anaconda-client`` into the root environment::
+Next, open this link,
 
-    conda install anaconda-client
+`environment.yml <https://raw.githubusercontent.com/usda-ars-ussl/fluxpart/master/conda.recipe/environment.yml>`_
 
-Now create a conda environment containing **fluxpart** and its dependencies::
+and right click on the page. Select "save as" and name the saved file `environment.yml`.
+Navigate to the directory where you saved `environment.yml`, and execute::
 
-    conda env create ussl/fp02
+    conda env create -f environment.yml
 
+That will create a conda environment containing **fluxpart** and its dependencies.
 Finally, activate the **fluxpart** environment::
 
     conda activate fp02
@@ -118,40 +112,19 @@ building-up **fluxpart** analyses is the `Jupyter notebook`__. With the
 
     conda install jupyter
 
-From the command line,
-make and cd into a new working directory, e.g.::
-
-    mkdir fluxnb
-    cd fluxnb
-
-An example notebook and high-frequency eddy covariance data file can be
-downloaded with::
-
-    anaconda download ussl/fp-quickstart
-    anaconda download ussl/tutorial-data
-
-The Jupyter notebook application can be launched from the command line of an
-active **fluxpart** shell session::
-
-    jupyter notebook
-
-The Jupyter dashboard will start in a web browser window, and look something
-like this:
-
-.. image:: screenshot_jupyter_dashboard.png
-
-Clicking on the ``fp-quickstart.ipynb`` link will open the notebook in a
-new browser tab:
-
-.. image:: screenshot_jupyter_notebook.png
-
-Selecting a
-cell in the notebook and hitting <Shift><Enter> executes the code in the cell.
-See the `Jupyter documentation`_ for
-complete information about Jupyter notebooks, and :ref:`fluxpart-tutorial` for
-getting started with **fluxpart**.
+See the `Jupyter documentation`_ for complete information about Jupyter notebooks.
 
 __ Jupyter_
+
+Fluxpart documentation and examples are here:
+
+    `tutorial <https://fluxpart.readthedocs.io/en/latest/tutorial.html>`_
+
+    `notebooks <https://github.com/usda-ars-ussl/fluxpart/tree/master/docs/notebooks>`_
+
+Some example data files are here:
+
+    `data <https://github.com/usda-ars-ussl/fluxpart/tree/master/tests/data>`_
 
 If at some point it is desired to deactivate the **fluxpart**  environment,
 then::

@@ -3,7 +3,7 @@ channels:
   - defaults
   - ussl
 dependencies:
-  - python=3.7.*
+  - python>=3.7
   - fluxpart=0.2.*
   - matplotlib
   - numpy

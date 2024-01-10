@@ -1,3 +1,7 @@
+# v0.2.11 (2024-01-10)
+- Update deprecated pandas get_loc method
+- Add format="ISO8061" to test cases due to change in pandas to_datetime:
+
 # v0.2.10 (2020-05-19)
 - Eliminate unused 'root_mssg' from the results
 - Enable saving and reading results in csv format

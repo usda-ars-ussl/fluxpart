@@ -160,6 +160,7 @@ The equivalent dictionary specification for the "EC-TOA5" format is:
         "temper_unit": "C",
         "skiprows": 4,
         "na_values": "NAN"                                                          
+        "to_datetime_kws": {"format": "ISO8601"},
     }
 
 When passing a custom ``hfd_format`` dictionary in this manner, it is required at a minimum to provide values for `filetype` and `cols`.
@@ -206,6 +207,9 @@ hfd_format["skiprows"] \: int
 
 hfd_format["na_values"] \: 
     String to be recognized as NaN, in addition the default list of NaN strings (see pandas.read_csv_).
+
+hfd_format["to_datetime_kws"] \: 
+    Keyward arguments passed to the pandas to_datetime method. The "format" keyword indicates the format of the datetime stamp.
 
 A final ``hfd_format`` keyword recognized by Fluxpart, but not used in this example, is the "flags" key:
 

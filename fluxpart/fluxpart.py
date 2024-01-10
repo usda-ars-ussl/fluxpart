@@ -36,7 +36,11 @@ EC_TOA5 = {
     "temper_unit": "C",
     "unit_convert": dict(q=1e-3, c=1e-6, P=1e3),
     "na_values": "NAN",
-}
+    # since pandas >2.0, format="ISO8601" is needed for auto detection
+    # if fractional seconds (.%f) not present in all timestamps
+    # e.g.: ..., 08:21:48.9, 08:21:49, 08:21:49.1, ...
+    "to_datetime_kws": {"format": "ISO8601"},
+ }
 
 EC_TOB1 = {
     "filetype": "tob1",
@@ -724,7 +728,7 @@ def _lookup(csv_file, date_icol, icol1, icol2=None, method="ffill"):
     date_icol, icol1, icol2 : int
         column index for the respective data
     method : str
-        Interpolation method used with pandas df.index.get_loc. The
+        Interpolation method used with pandas df.index.get_indexer. The
         default 'ffill' returns the PREVIOUS values if no exact date
         match is found in the lookup.
 
@@ -733,7 +737,7 @@ def _lookup(csv_file, date_icol, icol1, icol2=None, method="ffill"):
 
     @lru_cache()
     def func(date):
-        ix = df.index.get_loc(pd.to_datetime(date), method=method)
+        ix = df.index.get_indexer([pd.to_datetime(date)], method=method)[0]
         if icol2 is None:
             return df.iloc[ix, icol1 - 1]
         else:

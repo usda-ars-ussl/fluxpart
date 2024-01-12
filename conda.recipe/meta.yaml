@@ -1,51 +1,45 @@
 {% set name = "fluxpart" %}
-{% set version = "0.2.10" %}
+{% set version = "0.2.11" %}
 
 package:
-  name: "{{ name|lower }}"
-  version: "{{ version }}"
+  name: {{ name|lower }}
+  version: {{ version }}
 
 source:
-  url: "https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.tar.gz"
-  sha256: 75134ea872875230bf1e8201b5687f07493977b0a60ff7afc713477dcc669366
+  url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/fluxpart-{{ version }}.tar.gz
+  sha256: 63e2e6662316a0e5b3178c3252659a30618613746b8fbb3c6e7aa54bbf1accef
 
 build:
+  noarch: python
+  script: {{ PYTHON }} -m pip install . -vv --no-deps --no-build-isolation
   number: 0
-  script: "{{ PYTHON }} -m pip install . -vv"
 
 requirements:
   host:
-    - attrs
-    - matplotlib
-    - numpy
-    - pandas
+    - python
     - pip
-    - python
-    - pywavelets
   run:
-    - attrs
-    - matplotlib
-    - numpy
-    - pandas
     - python
+    - numpy
+    - matplotlib-base
+    - pandas
     - pywavelets
+    - attrs
 
 test:
   imports:
     - fluxpart
+  commands:
+    - pip check
   requires:
-    - numpy
-    - pandas
+    - pip
 
 about:
-  home: "https://github.com/usda-ars-ussl/fluxpart"
-  license: Public Domain CC0
-  license_family: CC
-  license_file: 
-  summary: "Module for partitioning eddy covariance flux measurements."
-  doc_url: 
-  dev_url: 
+  home: https://github.com/usda-ars-ussl/fluxpart
+  summary: Module for partitioning eddy covariance flux measurements.
+  license: SAX-PD
+  license_file: LICENSE
 
 extra:
   recipe-maintainers:
-    - your-github-id-here
+    - thskaggs

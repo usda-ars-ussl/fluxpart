@@ -1,2 +1,2 @@
 conda:
-  file: conda.recipe/environment.yml
+  environment: conda.recipe/environment.yml

@@ -159,7 +159,7 @@ The equivalent dictionary specification for the "EC-TOA5" format is:
         "unit_convert": dict(q=1e-3, c=1e-6, P=1e3),
         "temper_unit": "C",
         "skiprows": 4,
-        "na_values": "NAN"                                                          
+        "na_values": "NAN",
         "to_datetime_kws": {"format": "ISO8601"},
     }
 
@@ -209,7 +209,7 @@ hfd_format["na_values"] \:
     String to be recognized as NaN, in addition the default list of NaN strings (see pandas.read_csv_).
 
 hfd_format["to_datetime_kws"] \: 
-    Keyward arguments passed to the pandas to_datetime method. The "format" keyword indicates the format of the datetime stamp.
+    Optional keyword arguments passed to pandas.to_datetime_ for reading datetimes.
 
 A final ``hfd_format`` keyword recognized by Fluxpart, but not used in this example, is the "flags" key:
 
@@ -435,10 +435,13 @@ hfd_options["ustar_tol"] \: float
     Defalult is `hfd_options["ustar_tol"]` = 0.1 (m/s).
 
 .. _pandas.read_csv:
-    https://pandas.pydata.org/pandas-docs/stable/generated/pandas.read_csv.html
+    https://pandas.pydata.org/docs/reference/api/pandas.read_csv.html
 
 .. _alias:
-    http://pandas.pydata.org/pandas-docs/stable/timeseries.html#offset-aliases
+    https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#offset-aliases
+
+.. _pandas.to_datetime:
+    https://pandas.pydata.org/docs/reference/api/pandas.to_datetime.html
 
 
 
